@@ -1,0 +1,8 @@
+{
+  "files": [
+    "client.go",
+    "doc.go",
+    "models.go",
+    "operations.go"
+  ]
+}

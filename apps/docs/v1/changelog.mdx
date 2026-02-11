@@ -1,104 +1,52 @@
 ---
-title: "Changelog"
+title: "Product Changelog"
 description: "Product updates, releases, and fixes across AI Stats."
 rss: true
 ---
 
-<Update label="19th December 2025">
-# Model Additions
+<Update label="30th January 2026">
+# Major Overhaul Completion and Enhanced Compatibility
 
-We added the following new models:
+We have been tirelessly working on the next phase of AI Stats, and we're thrilled to announce that this comprehensive overhaul has now been completed. This update represents a significant leap forward in our mission to provide a unified, scalable platform for AI model access and insights.
 
-### OpenAI
+## AI Stats Gateway gets another overhaul
 
--   [GPT 5.2 Codex](https://ai-stats.phaseo.app/models/openai/gpt-5-2-codex-2025-12-18)
+The AI Stats Gateway has had another major overhaul behind the scenes, this has allowed us to introduce compatibility with Anthropic Messages API, giving another way for you to use our gateway. We have also enhanced the way that operations are done, meaning it should be faster, and add less latency than ever before, allowing you to build even more! We also are now confident in this design to allow us to expand rapidly, and across new modalities without major changes being required. We hope that we can continue to expand the gateway comprehensively in the coming month or two.
 
-### Mistral
+## Database Overhaul for Long-Term Expansion
 
--   [OCR 3](https://ai-stats.phaseo.app/models/mistral/ocr-3-2025-12-18)
+At the core of this update is a complete redesign of our database architecture. We've implemented a more flexible and robust schema that ensures our gateway can scale seamlessly to support an ever-growing number of models across all modalities - text, image, video, audio, moderations, embeddings, and beyond. This foundation should allow us to rapidly expand our coverage while maintaining high performance and reliability. This also ties into the Gateway overhaul, ensuring we have the data to offer the best developer experience possible - whilst also being part of our longer term plans to move the data from static JSON files into the database for accuracy, this **does not** mean we won't accept contributions via GitHub, we always will!
 
-### Z-AI
+## OpenAI & Anthropic Compatibility with New /messages Endpoint
 
--   [GLM 4.7](https://ai-stats.phaseo.app/models/z-ai/glm-4-7)
+Building on our existing OpenAI compatibility through the `/chat/completions` and `/responses` endpoints, we're now introducing Anthropic compatibility with our new `/messages` endpoint. This endpoint provides a standardized interface for chat-based interactions, making it easier than ever for developers to integrate with our gateway regardless of their familiarity with specific provider APIs. The `/messages` endpoint supports advanced features like streaming responses, tool calling, and multi-modal inputs, ensuring a smooth transition for existing OpenAI or Anthropic users. We have done our best to make things completely interoperable, however, please be aware there are some differences in how certain features work between providers, so please review the documentation carefully and report anything that seems off!
 
-# Plans Updated
+## Website Improvements for Better User Experience
 
-We updated the Google AI and ChatGPT subscription plans. See:
+To make AI Stats the "one stop shop" platform for staying up to date with AI developments, we've overhauled key sections of the website. These improvements include:
 
--   [Google AI - Free](https://ai-stats.phaseo.app/subscription-plans/google-ai-free)
--   [Google AI - Pro](https://ai-stats.phaseo.app/subscription-plans/google-ai-pro)
--   [Google AI - Ultra](https://ai-stats.phaseo.app/subscription-plans/google-ai-ultra)
--   [ChatGPT - Free](https://ai-stats.phaseo.app/subscription-plans/chatgpt-free)
--   [ChatGPT - Plus](https://ai-stats.phaseo.app/subscription-plans/chatgpt-plus)
--   [ChatGPT - Pro](https://ai-stats.phaseo.app/subscription-plans/chatgpt-pro)
+- Optimized load times and mobile responsiveness for on-the-go access
+- Improved search and filtering capabilities across all data sets
+- Introduced a Playground for easily testing models through the gateway in a simple but powerful interface - more features planned for this!
+- Enhanced model pages with clearer pricing, availability, and performance metrics
 
-# Monitor Overhaul
+These changes create a more intuitive and efficient experience, helping users quickly find the information they need and make informed decisions about AI models.
 
-Today we rolled out an overhaul to the Monitor experience. Changes include:
+We would appreciate any feedback on these changes or any parts of the website, so please get in touch if you have any suggestions!
 
--   The main monitor table has been moved into the Models page to provide a more integrated, compact and filterable way to explore models: [/models/table](https://ai-stats.phaseo.app/models/table).
--   The previous [/monitor/history](https://ai-stats.phaseo.app/monitor/history) page is no longer a separate page - its timeline and insight functionality has been merged into the main [/monitor](https://ai-stats.phaseo.app/monitor) page. The /monitor page now provides an in-depth timeline and insight tool that records all database changes and gives full transparency over everything that has changed.
+## SDK Developments
 
-# Families Page
+We're overhauling our in house SDKs to move away from AI SDK-style integrations and instead develop our own native implementations. This shift enables us to create a unified interface across all our SDKs, allowing developers to interact with any supported model through a single, consistent method. We're excited about the possibilities unlocked by our gateway-powered SDKs and believe that making a wide range of models accessible across multiple programming languages will empower the community to build truly innovative applications. We also are working on our own AI SDK (Vercel) to allow even easier integration with our gateway, more details on this will be shared soon!
 
-We introduced a new Families page (early work in progress) to display groups of models, which we class as families: [/families](https://ai-stats.phaseo.app/families). This view will be expanded over the coming weeks.
+## Exploring New Endpoints for Expanded Model Access
 
-</Update>
+To maximize access to cutting-edge AI models, we're actively exploring and prototyping new endpoints. These will include specialized interfaces for emerging modalities like video generation, embeddings, and audio processing as well as lesser accessible modalities like music and high quality speech generation. Our goal is to provide developers with the broadest possible range of AI capabilities through a single, unified gateway.
 
-<Update label="18th December 2025">
-# Model Additions
+Our ultimate aspiration is to support every model in our database through the gateway, making one of the most powerful technologies available as accessible as possible. We aim to enable seamless model switching, democratizing AI for developers and researchers across the globe.
 
-We added the following new model:
+This update marks a pivotal moment in AI Stats' evolution. We're committed to continuing our rapid pace of innovation, driven by community feedback and the ever-advancing AI landscape. Stay tuned for more updates as we roll out these new features and expand our model coverage.
 
-### Google
-
--   [Gemini 3 Flash Preview](https://ai-stats.phaseo.app/models/google/gemini-3-flash-preview-2025-12-17)
-
-# Monitor & Models Page
-
-We added a new Monitor page which shows all changes made to the database, and a tabular view on the Models page that provides a compact, filterable table of models for quick analysis.
-
-<Note type="warning">
-	This Monitor experience was overhauled on 19th December 2025 - see the 19th
-	December update for full details.
-</Note>
-
-</Update>
-
-<Update label="17th December 2025">
-# Model & Organisation Additions
-
-## Organisation Additions
-
-We are excited to welcome two new organisations to our database:
-
--   [Xiaomi](https://ai-stats.phaseo.app/organisations/xiaomi) - A leading technology company expanding into AI
--   [AllenAI](https://ai-stats.phaseo.app/organisations/allenai) - A research institute focused on artificial intelligence
-
-## Model Additions
-
-We added the following new models:
-
-### OpenAI
-
--   [GPT Image 1.5](https://ai-stats.phaseo.app/models/openai/gpt-image-1-5-2025-12-16)
--   [ChatGPT Image Latest](https://ai-stats.phaseo.app/models/openai/chatgpt-image-latest-2025-12-16)
-
-### Xiaomi
-
--   [MiMo V2 Flash](https://ai-stats.phaseo.app/models/xiaomi/mimo-v2-flash-2025-12-16)
-
-### AllenAI
-
--   [Bolmo 1B](https://ai-stats.phaseo.app/models/allenai/bolmo-1b-2025-12-15)
--   [Bolmo 7B](https://ai-stats.phaseo.app/models/allenai/bolmo-7b-2025-12-15)
--   [Molmo 2 4B](https://ai-stats.phaseo.app/models/allenai/molmo-2-4b-2025-12-16)
--   [Molmo 2 8B](https://ai-stats.phaseo.app/models/allenai/molmo-2-8b-2025-12-16)
--   [Olmo 3.1 32B Instruct](https://ai-stats.phaseo.app/models/allenai/olmo-3-1-32b-instruct-2025-12-12)
--   [Olmo 3.1 32B Think](https://ai-stats.phaseo.app/models/allenai/olmo-3-1-32b-think-2025-12-12)
--   [Olmo 3 32B Think](https://ai-stats.phaseo.app/models/allenai/olmo-3-32b-think-2025-11-20)
--   [Olmo 3 7B Instruct](https://ai-stats.phaseo.app/models/allenai/olmo-3-7b-instruct-2025-11-20)
--   [Olmo 3 7B Think](https://ai-stats.phaseo.app/models/allenai/olmo-3-7b-think-2025-11-20)
+Thanks for being part of this journey with us!
 
 </Update>
 
@@ -135,45 +83,7 @@ pip install --upgrade ai-stats-py-sdk==0.2.0a1
     yarn add @ai-stats/sdk@0.2.0-alpha.1
     ```
 
-    ```bash title="bun"
-    bun add @ai-stats/sdk@0.2.0-alpha.1
-    ```
-
     </CodeGroup>
-
-# New Monitor Page
-
-We have added a new Monitor page, consisting of two main sections: the [main monitor page](https://ai-stats.phaseo.app/monitor), which provides a more tabular, easily filterable version of the database, all compacted into a single table for quick overview and analysis; and the [history page](https://ai-stats.phaseo.app/monitor/history), which shows all the changes recorded to the database, allowing for full transparency over everything that has changed.
-
-This is still in active development and we will take any suggestions for improvements, or changes either of the pages.
-
-<Note type="warning">
-	This Monitor experience was updated on 19th December 2025 - see the 19th
-	December update above for full details.
-</Note>
-
-# Organisation Additions
-
-We are excited to welcome two new organisations to our database:
-
--   [Xiaomi](https://ai-stats.phaseo.app/organisations/xiaomi) - A leading technology company expanding into AI
--   [AllenAI](https://ai-stats.phaseo.app/organisations/allenai) - A research institute focused on artificial intelligence
-
-# Model Additions
-
-We added the following rumored models:
-
-### OpenAI
-
--   [GPT 5.2 Mini](https://ai-stats.phaseo.app/models/openai/gpt-5-2-mini)
--   [GPT 4o Mini TTS](https://ai-stats.phaseo.app/models/openai/gpt-4o-mini-tts-2025-12-15)
--   [GPT 4o Mini Transcribe](https://ai-stats.phaseo.app/models/openai/gpt-4o-mini-transcribe-2025-12-15)
--   [GPT Realtime Mini](https://ai-stats.phaseo.app/models/openai/gpt-realtime-mini-2025-12-15)
--   [GPT Audio Mini](https://ai-stats.phaseo.app/models/openai/gpt-audio-mini-2025-12-15)
-
-### Anthropic
-
--   [Claude 4.7 Sonnet](https://ai-stats.phaseo.app/models/anthropic/claude-sonnet-4-7)
 
 </Update>
 
@@ -218,15 +128,11 @@ pip install --upgrade ai-stats-py-sdk
     yarn upgrade @ai-stats/sdk
     ```
 
-    ```bash title="bun"
-    bun update @ai-stats/sdk
-    ```
-
     </CodeGroup>
 
 ### Reviewing API Implementations
 
-This is a major milestone on our journey to a V1 API. We hope this will be the last breaking change to the API as we take the decision to align with OpenAI's Standard. Please review your REST API implementations and refer to the updated [API reference](/v1/api-reference) for the latest schema and endpoints. The changes are rather minor, however, please review them.
+This is a major milestone on our journey to a V1 API. We hope this will be the last breaking change to the API as we take the decision to align with OpenAI's Standard. Please review your REST API implementations and refer to the updated [API reference](./api-reference/introduction.mdx) for the latest schema and endpoints. The changes are rather minor, however, please review them.
 
 ## Website
 
@@ -238,12 +144,6 @@ Additionally, we fixed an issue where Model Updates were incorrectly showing as 
 
 We have also tweaked Web Watchers to be more useful.
 
-## Data Changes
-
-A whole host of data changes have been made behind the scenes to improve data accuracy and consistency. We are still working on improving data coverage and accuracy, so please reach out if you spot any issues or have suggestions on how we can improve further!
-
-We are also investigating any quicker ways to gather and update data, so if you have any ideas or suggestions, please get in touch!
-
 ## Documentation
 
 We have expanded the SDK documentation in preperation for launching these shortly, with more examples and improved guides for each endpoint to help developers integrate our APIs more easily.
@@ -252,125 +152,12 @@ We have expanded the SDK documentation in preperation for launching these shortl
 
 We have implemented a Nightly CI process to automatically update model statuses based on their release dates, ensuring the data remains current and accurate.
 
-## Model Additions
-
-We added the following new models:
-
-### OpenAI
-
--   [GPT 5.2](https://ai-stats.phaseo.app/models/openai/gpt-5-2-2025-12-11)
--   [GPT 5.2 Chat](https://ai-stats.phaseo.app/models/openai/gpt-5-2-chat-2025-12-11)
--   [GPT 5.2 Pro](https://ai-stats.phaseo.app/models/openai/gpt-5-2-pro-2025-12-11)
--   [GPT 5.2 Mini](https://ai-stats.phaseo.app/models/openai/gpt-5-2-mini)
-
-### Cohere
-
--   [Rerank V4 Pro](https://ai-stats.phaseo.app/models/cohere/rerank-v4-0-pro-2025-12-11)
--   [Rerank V4 Fast](https://ai-stats.phaseo.app/models/cohere/rerank-v4-0-fast-2025-12-11)
-
-</Update>
-
-<Update label="10th December 2025">
-# Model Additions
-
-We added the following new model:
-
-### Qwen
-
--   [Qwen 3 Omni Flash](https://ai-stats.phaseo.app/models/qwen/qwen-3-omni-flash-2025-12-08)
-
-</Update>
-
-<Update label="9th December 2025">
-# Model Additions
-
-We added the following new models:
-
-### Mistral
-
--   [Devstral 2](https://ai-stats.phaseo.app/models/mistral/devstral-2-2025-12-09)
--   [Devstral Small 2](https://ai-stats.phaseo.app/models/mistral/devstral-small-2-2025-12-09)
-
-### Nomos
-
--   [Nomos 1](https://ai-stats.phaseo.app/models/nomos/nomos-1-2025-12-09)
-
-</Update>
-
-<Update label="8th December 2025">
-# Model Additions
-
-We added the following new models:
-
-### Essential AI
-
--   [Essential AI Rnj-1](https://ai-stats.phaseo.app/models/essential-ai/rnj-1-2025-12-06)
-
-### Nous
-
--   [Nous Research Hermes 4.3](https://ai-stats.phaseo.app/models/nous/hermes-4-3-36b-2025-12-03)
-
-### AI21
-
--   [Jamba Reasoning 3B](https://ai-stats.phaseo.app/models/ai21/jamba-reasoning-3b-2025-10-08)
--   [GLM 4.6V](https://ai-stats.phaseo.app/models/z-ai/glm-4-6v-2025-12-08)
--   [GLM 4.6V Flash](https://ai-stats.phaseo.app/models/z-ai/glm-4-6v-flash-2025-12-08)
--   [Qwen 3 TTS](https://ai-stats.phaseo.app/models/qwen/qwen-3-tts-2025-12-05)
--   [Gemini 3 Flash Image](https://ai-stats.phaseo.app/models/google/gemini-3-flash-image)
-
-# Model Updates
-
-We added a provisional release date of December 9, 2025 for GPT 5.2 based on recent rumours ([source](https://www.theverge.com/report/838857/openai-gpt-5-2-release-date-code-red-google-response)).
-
-Updated statuses for many models.
-
-We added an automated status changer based on dates which runs nightly.
-
 </Update>
 
 <Update label="5th December 2025">
 # UI Improvements
 
 Dark Mode has been implemented, offering users a darker theme to reduce eye strain and improve comfort in low-light environments.
-
-# Model Additions
-
-We added the following rumoured models:
-
--   Grok 4.2
--   GPT 5.2
-
-</Update>
-
-<Update label="2nd December 2025">
-# Model Additions
-
-We added new models from Mistral and Amazon:
-
-**Mistral:**
-
--   [Mistral Large 3 675B](https://ai-stats.phaseo.app/models/mistral/mistral-large-3-675b-2025-12-02)
--   [Ministral 3 14B](https://ai-stats.phaseo.app/models/mistral/ministral-3-14b-2025-12-02)
--   [Ministral 3 8B](https://ai-stats.phaseo.app/models/mistral/ministral-3-8b-2025-12-02)
--   [Ministral 3 3B](https://ai-stats.phaseo.app/models/mistral/ministral-3-3b-2025-12-02)
-
-**Amazon:**
-
--   [Nova 2 Lite](https://ai-stats.phaseo.app/models/amazon/nova-2-lite-2025-12-02)
--   [Nova 2 Pro](https://ai-stats.phaseo.app/models/amazon/nova-2-pro-2025-12-02)
--   [Nova 2 Sonic](https://ai-stats.phaseo.app/models/amazon/nova-2-sonic-2025-12-02)
--   [Nova 2 Omni](https://ai-stats.phaseo.app/models/amazon/nova-2-omni-2025-12-02)
--   [Nova Multimodal Embeddings](https://ai-stats.phaseo.app/models/amazon/nova-multimodal-embeddings-2025-12-02)
-
-</Update>
-
-<Update label="1st December 2025">
-# DeepSeek Model Additions
-
-We added the following DeepSeek models:
-
--   [Deepseek V3.2 Speciale](https://ai-stats.phaseo.app/models/deepseek/deepseek-v3-2-speciale-2025-12-01)
--   [DeepSeek V3.2](https://ai-stats.phaseo.app/models/deepseek/deepseek-v3-2-2025-12-01)
 
 </Update>
 
@@ -395,7 +182,7 @@ With the introduction of the AI Stats Gateway, we have also reworked how we trac
 
 ## Data Overhaul
 
-We have revisited what data we store, how we store it, and how we present that data, so we have built a smoother, more reliable experience across every page. It is not perfect yet, and we have plenty of optimisations ahead. We are working hard to adjust certain pages to make them clearer and easier to use. We know there is more to do, and we plan to make trends easier to track, comparisons easier to make, and data more accessible. If you have any feedback on how we can improve – whether that is certain pages and their designs or layouts, or even tracking new data points – please reach out!
+We have revisited what data we store, how we store it, and how we present that data, so we have built a smoother, more reliable experience across every page. It is not perfect yet, and we have plenty of optimisations ahead. We are working hard to adjust certain pages to make them clearer and easier to use. We know there is more to do, and we plan to make trends easier to track, comparisons easier to make, and data more accessible. If you have any feedback on how we can improve - whether that is certain pages and their designs or layouts, or even tracking new data points - please reach out!
 
 ## User Experience Improvements
 
@@ -413,15 +200,15 @@ We have also redesigned the API provider pages to give a clear overview of the p
 
 I am excited to announce an expansion of the Latest Updates section on the homepage. This section will now feature not only the latest model changes, but also the latest news and YouTube releases, alongside the model updates. With new pages inside the [Updates](https://ai-stats.phaseo.app/updates) section too, there has never been a better place to stay updated in the ever-changing world of AI! Stay tuned for even more updates to this section in the near future, as we plan to add more to keep you up to date with everything AI and AI Stats.
 
-## Our Model Gateway – Alpha
+## Our Model Gateway - Alpha
 
-We are also introducing a brand-new unified gateway to use any supported AI model with a single API interface. We are expanding coverage as fast as possible while keeping the service reliable at scale – please stress-test it and tell us what breaks. The integration steps are all covered per model page, and you can find the full API reference in our [docs](/v1/api-reference).
+We are also introducing a brand-new unified gateway to use any supported AI model with a single API interface. We are expanding coverage as fast as possible while keeping the service reliable at scale - please stress-test it and tell us what breaks. The integration steps are all covered per model page, and you can find the full API reference in our [docs](./api-reference/introduction.mdx).
 
 We would not yet recommend the API for production use, but we are excited to get feedback from the community to help us improve it rapidly. We will take any feedback as seriously as possible to make the gateway as reliable and useful as possible.
 
 > Please also be aware we are yet to fully finalise the schema for requests and responses, so these may change in the coming weeks.
 
-### SDKs – Alpha
+### SDKs - Alpha
 
 Today, we are also announcing official SDKs for Python and TypeScript/JavaScript. Pick your preferred package manager and run one of the commands below to get up and running.
 
@@ -449,10 +236,6 @@ The TypeScript/JavaScript SDK makes it easy to integrate AI models into web and 
 
     ```bash title="yarn"
     yarn add @ai-stats/sdk
-    ```
-
-    ```bash title="bun"
-    bun add @ai-stats/sdk
     ```
 
     </CodeGroup>

@@ -5,13 +5,23 @@ info:
         A gateway API for accessing various AI models with OpenAI-compatible
         endpoints.
     version: 1.0.0
+    contact:
+        name: AI Stats
+        url: https://docs.ai-stats.phaseo.app
+        email: danielbutler500@gmail.com
 servers:
-    - url: https://api.ai-stats.phaseo.app/v1
+    - url: https://api.phaseo.app/v1
 security:
     - BearerAuth: []
+tags:
+    - name: Gateway
+      description: Core AI Stats Gateway operations.
 paths:
     /:
         get:
+            x-beta: true
+            tags:
+                - Gateway
             operationId: root
             summary: Root endpoint
             description: Returns a welcome message.
@@ -28,8 +38,11 @@ paths:
                                     timestamp:
                                         type: string
                                         format: date-time
-    /healthz:
+    /health:
         get:
+            x-beta: true
+            tags:
+                - Gateway
             operationId: healthz
             summary: Health check
             description: Returns the health status of the API.
@@ -46,6 +59,9 @@ paths:
                                         example: ok
     /models:
         get:
+            x-beta: true
+            tags:
+                - Gateway
             operationId: listModels
             summary: List models
             description: Returns a list of available models.
@@ -133,8 +149,71 @@ paths:
                                         type: string
                                     message:
                                         type: string
-    /generation:
+    /providers:
         get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: listProviders
+            summary: List providers
+            description: Returns a list of available API providers.
+            parameters:
+                - name: limit
+                  in: query
+                  description: Limit the number of results
+                  schema:
+                      type: integer
+                      default: 50
+                      minimum: 1
+                      maximum: 250
+                - name: offset
+                  in: query
+                  description: Offset for pagination
+                  schema:
+                      type: integer
+                      default: 0
+            responses:
+                "200":
+                    description: List of providers
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    ok:
+                                        type: boolean
+                                        example: true
+                                    limit:
+                                        type: integer
+                                        example: 50
+                                    offset:
+                                        type: integer
+                                        example: 0
+                                    total:
+                                        type: integer
+                                        example: 25
+                                    providers:
+                                        type: array
+                                        items:
+                                            $ref: "#/components/schemas/Provider"
+                "500":
+                    description: Error
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    ok:
+                                        type: boolean
+                                    error:
+                                        type: string
+                                    message:
+                                        type: string
+    /generations:
+        get:
+            x-beta: true
+            tags:
+                - Gateway
             operationId: getGeneration
             summary: Get generation
             description: Retrieve a specific generation by ID.
@@ -178,6 +257,8 @@ paths:
                                         type: string
     /chat/completions:
         post:
+            tags:
+                - Gateway
             operationId: createChatCompletion
             summary: Create chat completion
             description: Creates a completion for the chat message.
@@ -196,6 +277,8 @@ paths:
                                 $ref: "#/components/schemas/ChatCompletionsResponse"
     /responses:
         post:
+            tags:
+                - Gateway
             operationId: createResponse
             summary: Create response
             description: Creates a response using the Responses API.
@@ -212,8 +295,34 @@ paths:
                         application/json:
                             schema:
                                 $ref: "#/components/schemas/ResponsesResponse"
+    /messages:
+        post:
+            tags:
+                - Gateway
+            operationId: createAnthropicMessage
+            summary: Create message
+            description: Creates a message using the Anthropic Messages API.
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/AnthropicMessagesRequest"
+            responses:
+                "200":
+                    description: Message response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/AnthropicMessagesResponse"
+                        text/event-stream:
+                            schema:
+                                type: string
     /embeddings:
         post:
+            x-beta: true
+            tags:
+                - Gateway
             operationId: createEmbedding
             summary: Create embeddings
             description: Creates an embedding vector representing the input text.
@@ -232,6 +341,9 @@ paths:
                                 $ref: "#/components/schemas/EmbeddingsResponse"
     /moderations:
         post:
+            x-beta: true
+            tags:
+                - Gateway
             operationId: createModeration
             summary: Create moderation
             description: Classifies if text violates OpenAI's usage policies.
@@ -250,6 +362,9 @@ paths:
                                 $ref: "#/components/schemas/ModerationsResponse"
     /audio/speech:
         post:
+            x-beta: true
+            tags:
+                - Gateway
             operationId: createSpeech
             summary: Generate speech
             description: Generates audio from the input text.
@@ -269,6 +384,9 @@ paths:
                                 format: binary
     /audio/transcriptions:
         post:
+            x-beta: true
+            tags:
+                - Gateway
             operationId: createTranscription
             summary: Create transcription
             description: Transcribes audio into the input language.
@@ -287,6 +405,9 @@ paths:
                                 $ref: "#/components/schemas/AudioTranscriptionResponse"
     /audio/translations:
         post:
+            x-beta: true
+            tags:
+                - Gateway
             operationId: createTranslation
             summary: Create translation
             description: Translates audio into English.
@@ -305,6 +426,9 @@ paths:
                                 $ref: "#/components/schemas/AudioTranslationResponse"
     /images/generations:
         post:
+            x-beta: true
+            tags:
+                - Gateway
             operationId: createImage
             summary: Create image
             description: Creates an image given a prompt.
@@ -323,6 +447,9 @@ paths:
                                 $ref: "#/components/schemas/ImagesGenerationResponse"
     /images/edits:
         post:
+            x-beta: true
+            tags:
+                - Gateway
             operationId: createImageEdit
             summary: Create image edit
             description: >-
@@ -343,6 +470,9 @@ paths:
                                 $ref: "#/components/schemas/ImagesEditResponse"
     /videos:
         post:
+            x-beta: true
+            tags:
+                - Gateway
             operationId: createVideo
             summary: Create video
             description: Creates a video from a prompt.
@@ -359,8 +489,141 @@ paths:
                         application/json:
                             schema:
                                 $ref: "#/components/schemas/VideoGenerationResponse"
+    /videos/{video_id}:
+        get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: getVideo
+            summary: Get video status
+            description: Retrieves the status for a video generation request.
+            parameters:
+                - name: video_id
+                  in: path
+                  required: true
+                  description: The ID of the video generation request.
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: Video status response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/VideoGenerationResponse"
+        delete:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: deleteVideo
+            summary: Delete video
+            description: Deletes a video generation request.
+            parameters:
+                - name: video_id
+                  in: path
+                  required: true
+                  description: The ID of the video generation request.
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: Video deletion response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/VideoDeleteResponse"
+    /videos/{video_id}/content:
+        get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: getVideoContent
+            summary: Get video content
+            description: Downloads the rendered video content.
+            parameters:
+                - name: video_id
+                  in: path
+                  required: true
+                  description: The ID of the video generation request.
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: Video content
+                    content:
+                        application/octet-stream:
+                            schema:
+                                type: string
+                                format: binary
+    /ocr:
+        post:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: createOcr
+            summary: Create OCR
+            description: Extracts text from an image using the requested model.
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/OcrRequest"
+            responses:
+                "200":
+                    description: OCR response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/OcrResponse"
+    /music/generate:
+        post:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: generateMusic
+            summary: Generate music
+            description: Generates music using the requested model and provider settings.
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/MusicGenerateRequest"
+            responses:
+                "200":
+                    description: Music generation response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/MusicGenerateResponse"
+    /music/generate/{music_id}:
+        get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: getMusicGeneration
+            summary: Get music generation status
+            description: Retrieves the status for a music generation request.
+            parameters:
+                - name: music_id
+                  in: path
+                  required: true
+                  description: The ID of the music generation request.
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: Music generation status response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/MusicGenerateResponse"
     /files:
         post:
+            x-beta: true
+            tags:
+                - Gateway
             operationId: uploadFile
             summary: Upload file
             description: Upload a file that can be used across various endpoints.
@@ -378,6 +641,9 @@ paths:
                             schema:
                                 $ref: "#/components/schemas/FileResponse"
         get:
+            x-beta: true
+            tags:
+                - Gateway
             operationId: listFiles
             summary: List files
             description: Returns a list of files that belong to the user's organization.
@@ -390,6 +656,9 @@ paths:
                                 $ref: "#/components/schemas/ListFilesResponse"
     /files/{file_id}:
         get:
+            x-beta: true
+            tags:
+                - Gateway
             operationId: retrieveFile
             summary: Retrieve file
             description: Returns information about a specific file.
@@ -409,6 +678,9 @@ paths:
                                 $ref: "#/components/schemas/FileResponse"
     /batches:
         post:
+            x-beta: true
+            tags:
+                - Gateway
             operationId: createBatch
             summary: Create batch
             description: Creates a batch of API requests.
@@ -427,6 +699,9 @@ paths:
                                 $ref: "#/components/schemas/BatchResponse"
     /batches/{batch_id}:
         get:
+            x-beta: true
+            tags:
+                - Gateway
             operationId: retrieveBatch
             summary: Retrieve batch
             description: Retrieves a batch.
@@ -446,6 +721,9 @@ paths:
                                 $ref: "#/components/schemas/BatchResponse"
     /analytics:
         post:
+            x-beta: true
+            tags:
+                - Gateway
             operationId: getAnalytics
             summary: Get analytics
             description: Returns aggregated analytics data.
@@ -458,6 +736,8 @@ paths:
                             properties:
                                 access_token:
                                     type: string
+                                benchmark_id:
+                                    $ref: "#/components/schemas/BenchmarkId"
             responses:
                 "200":
                     description: Analytics data
@@ -472,6 +752,1229 @@ paths:
                                         type: string
                                     message:
                                         type: string
+    /credits:
+        get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: getCredits
+            summary: Get remaining credits
+            description: Returns the remaining credits and usage statistics for a team.
+            parameters:
+                - name: team_id
+                  in: query
+                  description: The team ID to query
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: Credit information
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    ok:
+                                        type: boolean
+                                        example: true
+                                    credits:
+                                        type: object
+                                        properties:
+                                            remaining:
+                                                type: integer
+                                                description: Current credit balance in nanos
+                                                example: 15000000000
+                                            thirty_day_usage:
+                                                type: integer
+                                                description: Credits consumed in the last 30 days (nanos)
+                                                example: 250000000
+                                            thirty_day_requests:
+                                                type: integer
+                                                description: Number of API requests in the last 30 days
+                                                example: 1250
+                "400":
+                    description: Bad request
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "500":
+                    description: Server error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+    /activity:
+        get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: getActivity
+            summary: Get activity
+            description: Returns recent API activity for a team.
+            parameters:
+                - name: team_id
+                  in: query
+                  description: The team ID to query
+                  required: true
+                  schema:
+                      type: string
+                - name: days
+                  in: query
+                  description: Number of days to look back
+                  schema:
+                      type: integer
+                      default: 30
+                      minimum: 1
+                      maximum: 90
+                - name: limit
+                  in: query
+                  description: Maximum number of records to return
+                  schema:
+                      type: integer
+                      default: 50
+                      minimum: 1
+                      maximum: 250
+                - name: offset
+                  in: query
+                  description: Pagination offset
+                  schema:
+                      type: integer
+                      default: 0
+                      minimum: 0
+            responses:
+                "200":
+                    description: Activity data
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    ok:
+                                        type: boolean
+                                        example: true
+                                    period_days:
+                                        type: integer
+                                        example: 30
+                                    limit:
+                                        type: integer
+                                        example: 50
+                                    offset:
+                                        type: integer
+                                        example: 0
+                                    total:
+                                        type: integer
+                                        example: 1250
+                                    total_cost_cents:
+                                        type: number
+                                        example: 12.50
+                                    activity:
+                                        type: array
+                                        items:
+                                            $ref: "#/components/schemas/ActivityEntry"
+                "400":
+                    description: Bad request
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "500":
+                    description: Server error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+    /management/keys:
+        get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: listProvisioningKeys
+            summary: List management API keys
+            description: Returns all management API keys for a team.
+            parameters:
+                - name: team_id
+                  in: query
+                  description: The team ID to query
+                  required: true
+                  schema:
+                      type: string
+                - name: limit
+                  in: query
+                  description: Maximum number of keys to return
+                  schema:
+                      type: integer
+                      default: 50
+                      minimum: 1
+                      maximum: 250
+                - name: offset
+                  in: query
+                  description: Pagination offset
+                  schema:
+                      type: integer
+                      default: 0
+                      minimum: 0
+            responses:
+                "200":
+                    description: List of management API keys
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    ok:
+                                        type: boolean
+                                        example: true
+                                    limit:
+                                        type: integer
+                                        example: 50
+                                    offset:
+                                        type: integer
+                                        example: 0
+                                    total:
+                                        type: integer
+                                        example: 3
+                                    keys:
+                                        type: array
+                                        items:
+                                            $ref: "#/components/schemas/ProvisioningKey"
+                "400":
+                    description: Bad request
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "500":
+                    description: Server error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+    /management/keys/{id}:
+        get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: getProvisioningKey
+            summary: Get management API key
+            description: Returns details of a specific management API key.
+            parameters:
+                - name: id
+                  in: path
+                  description: The management API key ID
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: Management API key details
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    ok:
+                                        type: boolean
+                                        example: true
+                                    key:
+                                        $ref: "#/components/schemas/ProvisioningKeyDetail"
+                "404":
+                    description: Key not found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "500":
+                    description: Server error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+        patch:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: updateProvisioningKey
+            summary: Update management API key
+            description: Updates the name, status, or blocked state of a management API key.
+            parameters:
+                - name: id
+                  in: path
+                  description: The management API key ID
+                  required: true
+                  schema:
+                      type: string
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                name:
+                                    type: string
+                                    description: New name for the key
+                                status:
+                                    type: string
+                                    enum:
+                                        - active
+                                        - disabled
+                                        - revoked
+                                    description: New status for the key
+                                soft_blocked:
+                                    type: boolean
+                                    description: Whether to temporarily block the key
+            responses:
+                "200":
+                    description: Key updated successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    ok:
+                                        type: boolean
+                                        example: true
+                                    message:
+                                        type: string
+                                        example: Key updated successfully
+                "400":
+                    description: Bad request
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "404":
+                    description: Key not found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "500":
+                    description: Server error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+        delete:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: deleteProvisioningKey
+            summary: Delete management API key
+            description: Permanently deletes a management API key.
+            parameters:
+                - name: id
+                  in: path
+                  description: The management API key ID
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: Key deleted successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    ok:
+                                        type: boolean
+                                        example: true
+                                    message:
+                                        type: string
+                "404":
+                    description: Key not found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "500":
+                    description: Server error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+    /organisations:
+        get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: listOrganisations
+            summary: List organisations
+            description: Returns a list of available organisations.
+            parameters:
+                - name: limit
+                  in: query
+                  description: Limit the number of results
+                  schema:
+                      type: integer
+                      default: 50
+                      minimum: 1
+                      maximum: 250
+                - name: offset
+                  in: query
+                  description: Offset for pagination
+                  schema:
+                      type: integer
+                      default: 0
+                      minimum: 0
+            responses:
+                "200":
+                    description: List of organisations
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    ok:
+                                        type: boolean
+                                        example: true
+                                    limit:
+                                        type: integer
+                                        example: 50
+                                    offset:
+                                        type: integer
+                                        example: 0
+                                    total:
+                                        type: integer
+                                        example: 10
+                                    organisations:
+                                        type: array
+                                        items:
+                                            type: object
+                                            properties:
+                                                organisation_id:
+                                                    type: string
+                                                name:
+                                                    type: string
+                                                    nullable: true
+                                                country_code:
+                                                    type: string
+                                                    nullable: true
+                                                description:
+                                                    type: string
+                                                    nullable: true
+                                                colour:
+                                                    type: string
+                                                    nullable: true
+                "500":
+                    description: Error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+    /pricing/models:
+        get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: listPricingModels
+            summary: List pricing models
+            description: Returns active provider/model pricing entries.
+            responses:
+                "200":
+                    description: Pricing model list
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    ok:
+                                        type: boolean
+                                    models:
+                                        type: array
+                                        items:
+                                            type: object
+                                            additionalProperties: true
+                "500":
+                    description: Error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+    /pricing/calculate:
+        post:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: calculatePricing
+            summary: Calculate pricing
+            description: Calculates price for a usage payload.
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - provider
+                                - model
+                                - endpoint
+                                - usage
+                            properties:
+                                provider:
+                                    type: string
+                                model:
+                                    type: string
+                                endpoint:
+                                    type: string
+                                usage:
+                                    type: object
+                                    additionalProperties: true
+            responses:
+                "200":
+                    description: Pricing calculation result
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    ok:
+                                        type: boolean
+                                    pricing:
+                                        type: object
+                                        additionalProperties: true
+                "400":
+                    description: Missing required fields
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "404":
+                    description: Pricing not found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "500":
+                    description: Calculation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+    /health/providers/{provider_id}/derank:
+        get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: getProviderDerankStatus
+            summary: Provider derank status
+            description: Returns breaker-based derank/recovery status for a provider.
+            parameters:
+                - name: provider_id
+                  in: path
+                  required: true
+                  description: Provider identifier.
+                  schema:
+                      type: string
+                - name: window_hours
+                  in: query
+                  description: Observation window in hours.
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 168
+                - name: max_pairs
+                  in: query
+                  description: Max endpoint/model tuples to inspect.
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 100
+                - name: fetch_limit
+                  in: query
+                  description: Max recent requests to scan.
+                  schema:
+                      type: integer
+                      minimum: 50
+                      maximum: 2000
+            responses:
+                "200":
+                    description: Provider derank snapshot
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                additionalProperties: true
+                "400":
+                    description: Invalid provider id
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                    description: Invalid control secret
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "503":
+                    description: Control secret not configured
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "500":
+                    description: Error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+    /provisioning/keys:
+        get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: listProvisioningKeysAlias
+            summary: List provisioning keys
+            description: Alias of management keys endpoint.
+            parameters:
+                - name: team_id
+                  in: query
+                  description: The team ID to query
+                  required: true
+                  schema:
+                      type: string
+                - name: limit
+                  in: query
+                  description: Maximum number of keys to return
+                  schema:
+                      type: integer
+                      default: 50
+                      minimum: 1
+                      maximum: 250
+                - name: offset
+                  in: query
+                  description: Pagination offset
+                  schema:
+                      type: integer
+                      default: 0
+                      minimum: 0
+            responses:
+                "200":
+                    description: List of provisioning keys
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    ok:
+                                        type: boolean
+                                    keys:
+                                        type: array
+                                        items:
+                                            $ref: "#/components/schemas/ProvisioningKey"
+    /provisioning/keys/{id}:
+        get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: getProvisioningKeyAlias
+            summary: Get provisioning key
+            description: Alias of management key details endpoint.
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: Provisioning key details
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                additionalProperties: true
+        patch:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: updateProvisioningKeyAlias
+            summary: Update provisioning key
+            description: Alias of management key update endpoint.
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            additionalProperties: true
+            responses:
+                "200":
+                    description: Provisioning key updated
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                additionalProperties: true
+        delete:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: deleteProvisioningKeyAlias
+            summary: Delete provisioning key
+            description: Alias of management key delete endpoint.
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: Provisioning key deleted
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                additionalProperties: true
+    /keys/{id}/invalidate:
+        post:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: invalidateGatewayKeyCache
+            summary: Invalidate key cache
+            description: Bumps cache version for key id/kid and invalidates key cache entries.
+            parameters:
+                - name: id
+                  in: path
+                  description: Gateway key ID.
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: Key cache invalidated
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                additionalProperties: true
+                "400":
+                    description: Invalid key ID
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                    description: Invalid control secret
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "404":
+                    description: Key not found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "503":
+                    description: Control secret not configured
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "500":
+                    description: Error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+    /oauth-clients:
+        post:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: createOAuthClient
+            summary: Create OAuth client
+            description: Creates a team-scoped OAuth client.
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - name
+                                - redirect_uris
+                            properties:
+                                name:
+                                    type: string
+                                description:
+                                    type: string
+                                homepage_url:
+                                    type: string
+                                    format: uri
+                                redirect_uris:
+                                    type: array
+                                    items:
+                                        type: string
+                                        format: uri
+                                logo_url:
+                                    type: string
+                                    format: uri
+                                privacy_policy_url:
+                                    type: string
+                                    format: uri
+                                terms_of_service_url:
+                                    type: string
+                                    format: uri
+            responses:
+                "201":
+                    description: OAuth client created
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                additionalProperties: true
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+        get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: listOAuthClients
+            summary: List OAuth clients
+            description: Lists OAuth clients for the authenticated team.
+            responses:
+                "200":
+                    description: OAuth clients list
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: array
+                                        items:
+                                            type: object
+                                            additionalProperties: true
+                                    pagination:
+                                        type: object
+                                        additionalProperties: true
+                "401":
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+    /oauth-clients/{client_id}:
+        get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: getOAuthClient
+            summary: Get OAuth client
+            description: Returns details for an OAuth client.
+            parameters:
+                - name: client_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: OAuth client details
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                additionalProperties: true
+                "404":
+                    description: OAuth app not found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+        patch:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: updateOAuthClient
+            summary: Update OAuth client
+            description: Updates OAuth client metadata and redirect URIs.
+            parameters:
+                - name: client_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            additionalProperties: true
+            responses:
+                "200":
+                    description: OAuth client updated
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                additionalProperties: true
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "404":
+                    description: OAuth app not found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+        delete:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: deleteOAuthClient
+            summary: Delete OAuth client
+            description: Deletes an OAuth client and related metadata.
+            parameters:
+                - name: client_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: OAuth client deleted
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                additionalProperties: true
+                "404":
+                    description: OAuth app not found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+    /oauth-clients/{client_id}/regenerate-secret:
+        post:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: regenerateOAuthClientSecret
+            summary: Regenerate OAuth client secret
+            description: Regenerates and returns a new OAuth client secret.
+            parameters:
+                - name: client_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: OAuth client secret regenerated
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                additionalProperties: true
+                "404":
+                    description: OAuth app not found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+    /video/generations:
+        post:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: createVideoAlias
+            summary: Create video (alias)
+            description: Alias of /videos.
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/VideoGenerationRequest"
+            responses:
+                "200":
+                    description: Video response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/VideoGenerationResponse"
+    /video/generations/{video_id}:
+        get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: getVideoAlias
+            summary: Get video status (alias)
+            description: Alias of /videos/{video_id}.
+            parameters:
+                - name: video_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: Video status response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/VideoGenerationResponse"
+        delete:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: deleteVideoAlias
+            summary: Delete video (alias)
+            description: Alias of /videos/{video_id}.
+            parameters:
+                - name: video_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: Video deletion response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/VideoDeleteResponse"
+    /video/generations/{video_id}/content:
+        get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: getVideoContentAlias
+            summary: Get video content (alias)
+            description: Alias of /videos/{video_id}/content.
+            parameters:
+                - name: video_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: Video content
+                    content:
+                        application/octet-stream:
+                            schema:
+                                type: string
+                                format: binary
+    /music/generations:
+        post:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: generateMusicAlias
+            summary: Generate music (alias)
+            description: Alias of /music/generate.
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/MusicGenerateRequest"
+            responses:
+                "200":
+                    description: Music generation response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/MusicGenerateResponse"
+    /music/generations/{music_id}:
+        get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: getMusicGenerationAlias
+            summary: Get music generation status (alias)
+            description: Alias of /music/generate/{music_id}.
+            parameters:
+                - name: music_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: Music generation status response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/MusicGenerateResponse"
+    /batch:
+        post:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: createBatchAlias
+            summary: Create batch (alias)
+            description: Alias of /batches.
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/BatchRequest"
+            responses:
+                "200":
+                    description: Batch response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/BatchResponse"
+    /batch/{id}:
+        get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: retrieveBatchAlias
+            summary: Retrieve batch (alias)
+            description: Alias of /batches/{batch_id}.
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: Batch information
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/BatchResponse"
+    /endpoints:
+        get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: listEndpointsPlaceholder
+            summary: List endpoints (placeholder)
+            description: Placeholder route; currently returns not implemented.
+            responses:
+                "200":
+                    description: Endpoint metadata
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    ok:
+                                        type: boolean
+                                    endpoints:
+                                        type: array
+                                        items:
+                                            type: string
+                                    sample_models:
+                                        type: array
+                                        items:
+                                            $ref: "#/components/schemas/ModelId"
+                "501":
+                    description: Not implemented
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+    /keys:
+        get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: listKeysPlaceholder
+            summary: List keys (placeholder)
+            description: Placeholder route; currently returns not implemented.
+            responses:
+                "200":
+                    description: Keys list
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    ok:
+                                        type: boolean
+                                    keys:
+                                        type: array
+                                        items:
+                                            $ref: "#/components/schemas/ProvisioningKey"
+                "501":
+                    description: Not implemented
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+        post:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: createKeyPlaceholder
+            summary: Create key (placeholder)
+            description: Placeholder route; currently returns not implemented.
+            responses:
+                "200":
+                    description: Created key
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ProvisioningKeyWithValue"
+                "501":
+                    description: Not implemented
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+    /key:
+        get:
+            x-beta: true
+            tags:
+                - Gateway
+            operationId: getKeyPlaceholder
+            summary: Get key (placeholder)
+            description: Placeholder route; currently returns not implemented.
+            responses:
+                "200":
+                    description: Key information
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    ok:
+                                        type: boolean
+                                    key:
+                                        $ref: "#/components/schemas/ProvisioningKey"
+                "501":
+                    description: Not implemented
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
 components:
     securitySchemes:
         BearerAuth:
@@ -479,6 +1982,63 @@ components:
             scheme: bearer
             description: Bearer token authentication
     schemas:
+        ProviderRoutingOptions:
+            type: object
+            description: Provider routing preferences for gateway selection.
+            properties:
+                order:
+                    type: array
+                    items:
+                        type: string
+                only:
+                    type: array
+                    items:
+                        type: string
+                ignore:
+                    type: array
+                    items:
+                        type: string
+                include_alpha:
+                    type: boolean
+                    description: Include alpha providers in routing (off by default).
+        DebugOptions:
+            type: object
+            description: Gateway debug controls. These flags are never forwarded upstream.
+            properties:
+                enabled:
+                    type: boolean
+                return_upstream_request:
+                    type: boolean
+                return_upstream_response:
+                    type: boolean
+                trace:
+                    type: boolean
+                trace_level:
+                    type: string
+                    enum:
+                        - summary
+                        - full
+        Provider:
+            type: object
+            properties:
+                api_provider_id:
+                    type: string
+                    example: "openai"
+                api_provider_name:
+                    type: string
+                    nullable: true
+                    example: "OpenAI"
+                description:
+                    type: string
+                    nullable: true
+                link:
+                    type: string
+                    nullable: true
+                    example: "https://openai.com"
+                country_code:
+                    type: string
+                    nullable: true
+                    example: "US"
         Model:
             type: object
             properties:
@@ -550,6 +2110,8 @@ components:
                 meta:
                     type: boolean
                     default: false
+                debug:
+                    $ref: "#/components/schemas/DebugOptions"
                 presence_penalty:
                     type: number
                     minimum: -2
@@ -610,6 +2172,8 @@ components:
                                   type: object
                 usage:
                     type: boolean
+                provider:
+                    $ref: "#/components/schemas/ProviderRoutingOptions"
                 user_id:
                     type: string
                 service_tier:
@@ -824,6 +2388,148 @@ components:
                     type: integer
                 total_tokens:
                     type: integer
+        AnthropicMessagesRequest:
+            type: object
+            required:
+                - model
+                - messages
+            properties:
+                model:
+                    type: string
+                system:
+                    oneOf:
+                        - type: string
+                        - type: array
+                          items:
+                              type: object
+                messages:
+                    type: array
+                    minItems: 1
+                    items:
+                        $ref: "#/components/schemas/AnthropicMessage"
+                max_tokens:
+                    type: integer
+                    minimum: 1
+                temperature:
+                    type: number
+                    minimum: 0
+                    maximum: 2
+                top_p:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+                top_k:
+                    type: integer
+                    minimum: 1
+                tools:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/AnthropicTool"
+                tool_choice:
+                    oneOf:
+                        - type: string
+                        - type: object
+                stream:
+                    type: boolean
+                metadata:
+                    type: object
+                    additionalProperties:
+                        type: string
+                debug:
+                    $ref: "#/components/schemas/DebugOptions"
+                provider:
+                    $ref: "#/components/schemas/ProviderRoutingOptions"
+        AnthropicMessagesResponse:
+            type: object
+            properties:
+                id:
+                    type: string
+                type:
+                    type: string
+                role:
+                    type: string
+                    enum:
+                        - assistant
+                model:
+                    type: string
+                content:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/AnthropicContentBlock"
+                stop_reason:
+                    type: string
+                stop_sequence:
+                    type: string
+                usage:
+                    $ref: "#/components/schemas/AnthropicUsage"
+        AnthropicMessage:
+            type: object
+            required:
+                - role
+                - content
+            properties:
+                role:
+                    type: string
+                    enum:
+                        - user
+                        - assistant
+                content:
+                    oneOf:
+                        - type: string
+                        - type: array
+                          items:
+                              $ref: "#/components/schemas/AnthropicContentBlock"
+        AnthropicContentBlock:
+            type: object
+            properties:
+                type:
+                    type: string
+                    enum:
+                        - text
+                        - image
+                        - tool_use
+                        - tool_result
+                text:
+                    type: string
+                source:
+                    type: object
+                    properties:
+                        type:
+                            type: string
+                        media_type:
+                            type: string
+                        data:
+                            type: string
+                        url:
+                            type: string
+                id:
+                    type: string
+                name:
+                    type: string
+                input:
+                    type: object
+                tool_use_id:
+                    type: string
+                content:
+                    type: string
+        AnthropicTool:
+            type: object
+            required:
+                - name
+            properties:
+                name:
+                    type: string
+                description:
+                    type: string
+                input_schema:
+                    type: object
+        AnthropicUsage:
+            type: object
+            properties:
+                input_tokens:
+                    type: integer
+                output_tokens:
+                    type: integer
         ResponsesRequest:
             type: object
             required:
@@ -930,6 +2636,10 @@ components:
                     type: boolean
                 meta:
                     type: boolean
+                debug:
+                    $ref: "#/components/schemas/DebugOptions"
+                provider:
+                    $ref: "#/components/schemas/ProviderRoutingOptions"
         ResponsesResponse:
             type: object
             properties:
@@ -955,13 +2665,17 @@ components:
                     $ref: "#/components/schemas/Usage"
         EmbeddingsRequest:
             type: object
-            required:
-                - model
-                - input
             properties:
                 model:
                     type: string
                 input:
+                    oneOf:
+                        - type: string
+                        - type: array
+                          items:
+                              type: string
+                inputs:
+                    description: Alias for input.
                     oneOf:
                         - type: string
                         - type: array
@@ -972,8 +2686,53 @@ components:
                 dimensions:
                     type: integer
                     minimum: 1
+                embedding_options:
+                    type: object
+                    properties:
+                        google:
+                            type: object
+                            properties:
+                                output_dimensionality:
+                                    type: integer
+                                    minimum: 1
+                                task_type:
+                                    type: string
+                                    enum:
+                                        - TASK_TYPE_UNSPECIFIED
+                                        - RETRIEVAL_QUERY
+                                        - RETRIEVAL_DOCUMENT
+                                        - SEMANTIC_SIMILARITY
+                                        - CLASSIFICATION
+                                title:
+                                    type: string
+                        mistral:
+                            type: object
+                            properties:
+                                output_dimension:
+                                    type: integer
+                                    minimum: 1
+                                    nullable: true
+                                output_dtype:
+                                    type: string
+                                    enum:
+                                        - float
+                                        - int8
+                                        - uint8
+                                        - binary
+                                        - ubinary
                 user:
                     type: string
+                debug:
+                    $ref: "#/components/schemas/DebugOptions"
+                provider:
+                    $ref: "#/components/schemas/ProviderRoutingOptions"
+            anyOf:
+                - required:
+                      - model
+                      - input
+                - required:
+                      - model
+                      - inputs
         EmbeddingsResponse:
             type: object
             properties:
@@ -1009,6 +2768,8 @@ components:
                 meta:
                     type: boolean
                     default: false
+                debug:
+                    $ref: "#/components/schemas/DebugOptions"
                 input:
                     oneOf:
                         - type: string
@@ -1017,6 +2778,8 @@ components:
                               oneOf:
                                   - $ref: "#/components/schemas/TextModerationInput"
                                   - $ref: "#/components/schemas/ImageModerationInput"
+                provider:
+                    $ref: "#/components/schemas/ProviderRoutingOptions"
         TextModerationInput:
             type: object
             required:
@@ -1134,6 +2897,8 @@ components:
                         - wav
                         - ogg
                         - aac
+                provider:
+                    $ref: "#/components/schemas/ProviderRoutingOptions"
         AudioTranscriptionRequest:
             type: object
             required:
@@ -1148,6 +2913,8 @@ components:
                     type: string
                 language:
                     type: string
+                provider:
+                    $ref: "#/components/schemas/ProviderRoutingOptions"
         AudioTranscriptionResponse:
             type: object
             properties:
@@ -1173,6 +2940,8 @@ components:
                     type: number
                     minimum: 0
                     maximum: 2
+                provider:
+                    $ref: "#/components/schemas/ProviderRoutingOptions"
         AudioTranslationResponse:
             type: object
             properties:
@@ -1202,6 +2971,8 @@ components:
                     type: string
                 user:
                     type: string
+                provider:
+                    $ref: "#/components/schemas/ProviderRoutingOptions"
         ImagesGenerationResponse:
             type: object
             properties:
@@ -1247,6 +3018,8 @@ components:
                     type: boolean
                 usage:
                     type: boolean
+                provider:
+                    $ref: "#/components/schemas/ProviderRoutingOptions"
         ImagesEditResponse:
             type: object
             properties:
@@ -1266,12 +3039,40 @@ components:
                     type: string
                 prompt:
                     type: string
+                seconds:
+                    oneOf:
+                        - type: integer
+                        - type: string
+                size:
+                    type: string
+                input_reference:
+                    type: string
+                input_reference_mime_type:
+                    type: string
                 duration:
                     type: integer
                     minimum: 1
                     maximum: 120
+                duration_seconds:
+                    type: integer
                 ratio:
                     type: string
+                aspect_ratio:
+                    type: string
+                resolution:
+                    type: string
+                negative_prompt:
+                    type: string
+                sample_count:
+                    type: integer
+                seed:
+                    type: integer
+                person_generation:
+                    type: string
+                output_storage_uri:
+                    type: string
+                provider:
+                    $ref: "#/components/schemas/ProviderRoutingOptions"
         VideoGenerationResponse:
             type: object
             properties:
@@ -1296,6 +3097,123 @@ components:
                                 type: string
                             url:
                                 type: string
+        VideoDeleteResponse:
+            type: object
+            properties:
+                id:
+                    type: string
+                object:
+                    type: string
+                deleted:
+                    type: boolean
+        OcrRequest:
+            type: object
+            required:
+                - model
+                - image
+            properties:
+                model:
+                    type: string
+                image:
+                    type: string
+                language:
+                    type: string
+                echo_upstream_request:
+                    type: boolean
+                debug:
+                    $ref: "#/components/schemas/DebugOptions"
+                provider:
+                    $ref: "#/components/schemas/ProviderRoutingOptions"
+        OcrResponse:
+            type: object
+            additionalProperties: true
+        MusicGenerateRequest:
+            type: object
+            required:
+                - model
+            properties:
+                model:
+                    type: string
+                prompt:
+                    type: string
+                duration:
+                    type: integer
+                format:
+                    type: string
+                    enum:
+                        - mp3
+                        - wav
+                        - ogg
+                        - aac
+                provider:
+                    $ref: "#/components/schemas/ProviderRoutingOptions"
+                suno:
+                    type: object
+                    properties:
+                        prompt:
+                            type: string
+                        style:
+                            type: string
+                        title:
+                            type: string
+                        customMode:
+                            type: boolean
+                        instrumental:
+                            type: boolean
+                        personaId:
+                            type: string
+                        model:
+                            type: string
+                        negativeTags:
+                            type: string
+                        vocalGender:
+                            type: string
+                            enum:
+                                - m
+                                - f
+                        styleWeight:
+                            type: number
+                            minimum: 0
+                            maximum: 1
+                        weirdnessConstraint:
+                            type: number
+                            minimum: 0
+                            maximum: 1
+                        audioWeight:
+                            type: number
+                            minimum: 0
+                            maximum: 1
+                        callBackUrl:
+                            type: string
+                            format: uri
+                elevenlabs:
+                    type: object
+                    properties:
+                        prompt:
+                            type: string
+                        composition_plan:
+                            type: object
+                        music_length_ms:
+                            type: integer
+                        model_id:
+                            type: string
+                        force_instrumental:
+                            type: boolean
+                        store_for_inpainting:
+                            type: boolean
+                        with_timestamps:
+                            type: boolean
+                        sign_with_c2pa:
+                            type: boolean
+                        output_format:
+                            type: string
+                echo_upstream_request:
+                    type: boolean
+                debug:
+                    $ref: "#/components/schemas/DebugOptions"
+        MusicGenerateResponse:
+            type: object
+            additionalProperties: true
         BatchRequest:
             type: object
             required:
@@ -1310,6 +3228,10 @@ components:
                     type: string
                 metadata:
                     type: object
+                debug:
+                    $ref: "#/components/schemas/DebugOptions"
+                provider:
+                    $ref: "#/components/schemas/ProviderRoutingOptions"
         BatchResponse:
             type: object
             properties:
@@ -2230,3 +4152,155 @@ components:
                 - wildbench
                 - xlang-agent
                 - zebralogic
+        ErrorResponse:
+            type: object
+            properties:
+                ok:
+                    type: boolean
+                    example: false
+                error:
+                    type: string
+                    example: "error_type"
+                message:
+                    type: string
+                    example: "Human-readable error message"
+        ActivityEntry:
+            type: object
+            properties:
+                request_id:
+                    type: string
+                    example: "req_abc123"
+                provider:
+                    type: string
+                    example: "openai"
+                model:
+                    type: string
+                    example: "gpt-4o"
+                endpoint:
+                    type: string
+                    example: "chat.completions"
+                usage:
+                    type: object
+                    properties:
+                        input_tokens:
+                            type: integer
+                        output_tokens:
+                            type: integer
+                        total_tokens:
+                            type: integer
+                cost_cents:
+                    type: number
+                    example: 0.015
+                latency_ms:
+                    type: integer
+                    example: 450
+                timestamp:
+                    type: string
+                    format: date-time
+                    example: "2026-01-20T10:30:00Z"
+        ProvisioningKey:
+            type: object
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                    example: "11111111-1111-4111-8111-111111111111"
+                name:
+                    type: string
+                    example: "Production Key"
+                prefix:
+                    type: string
+                    example: "pk_abc123"
+                status:
+                    type: string
+                    enum:
+                        - active
+                        - disabled
+                        - revoked
+                    example: "active"
+                scopes:
+                    type: string
+                    example: "read,write"
+                created_at:
+                    type: string
+                    format: date-time
+                    example: "2026-01-01T00:00:00Z"
+                last_used_at:
+                    type: string
+                    format: date-time
+                    nullable: true
+                    example: "2026-01-20T10:30:00Z"
+        ProvisioningKeyWithValue:
+            type: object
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                    example: "11111111-1111-4111-8111-111111111111"
+                name:
+                    type: string
+                    example: "My New Key"
+                prefix:
+                    type: string
+                    example: "pk_abc123xy"
+                status:
+                    type: string
+                    enum:
+                        - active
+                        - disabled
+                        - revoked
+                    example: "active"
+                scopes:
+                    type: string
+                    example: "read,write"
+                created_at:
+                    type: string
+                    format: date-time
+                    example: "2026-01-20T10:30:00Z"
+                key:
+                    type: string
+                    description: The raw management API key. Only returned on creation.
+                    example: "pk_abc123xy_abc123def456..."
+        ProvisioningKeyDetail:
+            type: object
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                    example: "11111111-1111-4111-8111-111111111111"
+                team_id:
+                    type: string
+                    format: uuid
+                    example: "22222222-2222-4222-8222-222222222222"
+                name:
+                    type: string
+                    example: "Production Key"
+                prefix:
+                    type: string
+                    example: "pk_abc123"
+                status:
+                    type: string
+                    enum:
+                        - active
+                        - disabled
+                        - revoked
+                    example: "active"
+                scopes:
+                    type: string
+                    example: "read,write"
+                created_by:
+                    type: string
+                    format: uuid
+                    example: "33333333-3333-4333-8333-333333333333"
+                created_at:
+                    type: string
+                    format: date-time
+                    example: "2026-01-01T00:00:00Z"
+                last_used_at:
+                    type: string
+                    format: date-time
+                    nullable: true
+                    example: "2026-01-20T10:30:00Z"
+                soft_blocked:
+                    type: boolean
+                    example: false

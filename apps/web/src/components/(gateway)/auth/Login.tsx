@@ -10,9 +10,14 @@ type OAuthProvider = (typeof OAUTH)[number];
 type Provider = OAuthProvider | "email";
 
 export async function Login() {
-	const c = await cookies();
-	const lastProvider = (c.get("auth_provider")?.value?.toLowerCase() ??
-		null) as Provider | null;
+	let lastProvider: Provider | null = null;
+	try {
+		const c = await cookies();
+		lastProvider = (c.get("auth_provider")?.value?.toLowerCase() ??
+			null) as Provider | null;
+	} catch {
+		lastProvider = null;
+	}
 
 	const providerLabel = lastProvider
 		? lastProvider === "email"

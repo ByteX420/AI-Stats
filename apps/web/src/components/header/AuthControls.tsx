@@ -9,6 +9,7 @@ export default async function AuthControls({
 	variant?: "mobile" | "desktop";
 }) {
 	const supabase = await createClient();
+
 	// supabase.auth.getUser() returns { data: { user } }
 	const { data: getUserData } = await supabase.auth.getUser();
 	const user = getUserData?.user ?? null;

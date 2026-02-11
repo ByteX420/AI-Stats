@@ -11,6 +11,13 @@ import {
 	computeTierInfo,
 } from "@/components/(gateway)/credits/tiers";
 import { TierBadge } from "@/components/(gateway)/credits/TierBadge";
+import { Metadata } from "next";
+import { Suspense } from "react";
+import SettingsSectionFallback from "@/components/(gateway)/settings/SettingsSectionFallback";
+
+export const metadata: Metadata = {
+	title: "Credits - Settings",
+};
 
 function money(amount: number, currency: string) {
 	return new Intl.NumberFormat("en-US", {
@@ -20,7 +27,19 @@ function money(amount: number, currency: string) {
 	}).format(amount);
 }
 
-export default async function Page(props: {
+export default function Page(props: {
+	searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+	return (
+		<div className="space-y-6">
+			<Suspense fallback={<SettingsSectionFallback />}>
+				<CreditsSettingsContent searchParams={props.searchParams} />
+			</Suspense>
+		</div>
+	);
+}
+
+async function CreditsSettingsContent(props: {
 	searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
 	const searchParams = await props.searchParams;
@@ -52,7 +71,7 @@ export default async function Page(props: {
 		const { data, error: walletErr } = await supabase
 			.from("wallets")
 			.select(
-				"stripe_customer_id,balance_nanos,auto_top_up_enabled,low_balance_threshold,auto_top_up_amount,auto_top_up_account_id"
+				"team_id,stripe_customer_id,balance_nanos,auto_top_up_enabled,low_balance_threshold,auto_top_up_amount,auto_top_up_account_id"
 			)
 			.eq("team_id", teamId)
 			.maybeSingle();
@@ -64,7 +83,7 @@ export default async function Page(props: {
 			wallet = w;
 			try {
 				const nanos = Number(w?.balance_nanos ?? 0);
-				initialBalance = Number((nanos / 10_000_000).toFixed(2));
+                                initialBalance = Number((nanos / 1_000_000_000).toFixed(5));
 			} catch {
 				initialBalance = 0;
 			}
@@ -143,7 +162,7 @@ export default async function Page(props: {
 		const { data: tx, error: txErr } = await supabase
 			.from("credit_ledger")
 			.select(
-				"id,event_time,kind,amount_nanos,before_balance_nanos,after_balance_nanos,status,ref_type,ref_id,created_at"
+				"id,event_time,kind,amount_nanos,before_balance_nanos,after_balance_nanos,status,ref_type,ref_id,source_ref_type,source_ref_id,created_at"
 			)
 			.eq("team_id", teamId)
 			.order("event_time", { ascending: false })
@@ -163,6 +182,8 @@ export default async function Page(props: {
 				kind: r.kind ?? null,
 				ref_type: r.ref_type ?? null,
 				ref_id: r.ref_id ?? null,
+				source_ref_type: r.source_ref_type ?? null,
+				source_ref_id: r.source_ref_id ?? null,
 				before_balance_nanos: r.before_balance ?? null,
 				after_balance_nanos: r.after_balance ?? null,
 			}));
@@ -170,6 +191,19 @@ export default async function Page(props: {
 	} catch (e) {
 		console.log("[ERROR] unexpected recent transactions error:", String(e));
 	}
+
+	const latestPaymentSuccessAt = (() => {
+		let latest: number | null = null;
+		for (const tx of recentTransactions) {
+			const status = String(tx.status ?? "").toLowerCase();
+			if (status !== "paid" && status !== "succeeded") continue;
+			if ((tx.amount_nanos ?? 0) <= 0) continue;
+			const ts = tx.created_at ? new Date(tx.created_at).getTime() : NaN;
+			if (!Number.isFinite(ts)) continue;
+			if (latest === null || ts > latest) latest = ts;
+		}
+		return latest ? new Date(latest).toISOString() : null;
+	})();
 
 	// Tier stats (best-effort)
 	if (teamId) {
@@ -196,8 +230,8 @@ export default async function Page(props: {
 			if (e2) console.log("[WARN] MTD spend (tier badge):", String(e2));
 
 			tierStats = {
-				lastMonth: Number(prev ?? 0) / 10_000_000,
-				mtd: Number(mtd ?? 0) / 10_000_000,
+                                lastMonth: Number(prev ?? 0) / 1_000_000_000,
+                                mtd: Number(mtd ?? 0) / 1_000_000_000,
 			};
 		} catch (err) {
 			console.log("[ERROR] tier stats fetch:", String(err));
@@ -230,7 +264,7 @@ export default async function Page(props: {
 
 	return (
 		<div className="space-y-6">
-			<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+			<div className="flex items-center justify-between gap-3">
 				<h1 className="text-2xl font-bold">Credits</h1>
 				<TierBadge
 					href="/settings/tiers"
@@ -246,7 +280,10 @@ export default async function Page(props: {
 				/>
 			</div>
 
-			<Banner queryString={queryString ?? null} />
+			<Banner
+				queryString={queryString ?? null}
+				latestPaymentSuccessAt={latestPaymentSuccessAt}
+			/>
 
 			<CurrentCredits balance={initialBalance} />
 

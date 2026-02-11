@@ -26,6 +26,10 @@ export async function SetUpAutoTopUp(props: SetUpAutoTopUpProps) {
         topUpAmount,
         paymentMethodId = null,
     } = props;
+    const minTopUpNanos = 10 * 1_000_000_000;
+    if (topUpAmount < minTopUpNanos) {
+        throw new Error("Minimum auto top-up amount is $10");
+    }
 
     // store amounts as integers (assume nanos passed in already)
     const payload = {
@@ -78,6 +82,7 @@ type ChargeSavedPaymentArgs = {
     event_type?: string;
     paymentMethodId?: string | null;
     payment_method_id?: string | null;
+    team_id?: string | null;
 };
 
 function resolveInternalBaseUrl(): string {

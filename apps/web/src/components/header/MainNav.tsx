@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 
 const LINKS = [
 	{ href: "/", label: "Home", exact: true },
-	{ href: "/compare", label: "Compare" },
 	{ href: "/organisations", label: "Organisations" },
 	{ href: "/models", label: "Models" },
 	{ href: "/benchmarks", label: "Benchmarks" },
@@ -31,10 +30,10 @@ export default function MainNav() {
 						aria-current={isActive ? "page" : undefined}
 						className={cn(
 							// layout: no fixed height -> no clipping
-							"inline-flex items-center whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium leading-none",
+							"inline-flex items-center whitespace-nowrap rounded-lg px-3 h-10 text-sm font-medium leading-none",
 							// make text non-selectable while keeping link clickable
 							"select-none",
-							// ghost base — use full foreground so inactive links aren't gray
+							// ghost base -- use full foreground so inactive links aren't gray
 							"border border-transparent text-foreground",
 							// hover (same hue for both themes)
 							"transition-colors hover:bg-zinc-100/70 dark:hover:bg-zinc-900/60",

@@ -73,32 +73,51 @@ function mapTrajectory(row: RpcTokenTrajectory | undefined): ModelTokenTrajector
 }
 
 export async function getModelTokenTrajectory(
-	modelId: string
+	modelId: string,
+	includeHidden: boolean
 ): Promise<ModelTokenTrajectory | null> {
-	console.time(`[performance] tokens ${modelId}`);
+	const t0 = Date.now();
 	const client = createAdminClient();
+
+	const { data: modelRow, error: modelError } = await client
+		.from("data_models")
+		.select("hidden")
+		.eq("model_id", modelId)
+		.maybeSingle();
+
+	if (modelError) {
+		throw new Error(modelError.message ?? "Failed to load model metadata");
+	}
+	if (!modelRow || (!includeHidden && modelRow.hidden)) {
+		throw new Error("Model not found");
+	}
 
 	const { data, error } = await client.rpc("get_model_token_trajectory", {
 		p_model_id: modelId,
 	});
 
-	console.timeEnd(`[performance] tokens ${modelId}`);
+	const dur = Date.now() - t0;
+	console.log(`[tokens] rpc dur=${dur}ms modelId=${modelId}`);
 
 	if (error) {
 		throw new Error(error.message ?? "Failed to load token trajectory");
 	}
 
 	const row = (data?.[0] as RpcTokenTrajectory | undefined) ?? undefined;
-	return mapTrajectory(row);
+	const result = mapTrajectory(row);
+	console.log(`[tokens] result releaseDate=${result?.releaseDate ?? "null"} points=${result?.points.length ?? 0}`);
+
+	return result;
 }
 
 export async function getModelTokenTrajectoryCached(
-	modelId: string
+	modelId: string,
+	includeHidden: boolean
 ): Promise<ModelTokenTrajectory | null> {
 	"use cache";
 
 	cacheLife("days");
 	cacheTag("data:gateway_requests");
 
-	return getModelTokenTrajectory(modelId);
+	return getModelTokenTrajectory(modelId, includeHidden);
 }

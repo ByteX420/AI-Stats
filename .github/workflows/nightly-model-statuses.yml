@@ -8,7 +8,7 @@ on:
 env:
     NODE_VERSION: 22
 
-# These permissions only affect GITHUB_TOKEN; we’ll use an app token instead.
+# These permissions only affect GITHUB_TOKEN; we'll use an app token instead.
 permissions:
     contents: read
     pull-requests: read
@@ -43,8 +43,8 @@ jobs:
             - name: Setup pnpm
               uses: pnpm/action-setup@v4
               with:
-                  package_json_file: package.json
-
+                  version: 10.15.1
+                  run_install: false
             - name: Setup Node.js
               uses: actions/setup-node@v4
               with:
@@ -55,10 +55,10 @@ jobs:
               run: pnpm install --frozen-lockfile
 
             - name: Refresh model statuses
-              run: pnpm data:update-statuses
+              run: pnpm run data:update-statuses
 
             - name: Validate data
-              run: pnpm validate:data
+              run: pnpm run validate:data
 
             - name: Create or update pull request
               id: cpr
@@ -75,3 +75,4 @@ jobs:
                   committer: ${{ steps.bot.outputs.committer }}
                   author: ${{ steps.bot.outputs.committer }}
                   signoff: true
+

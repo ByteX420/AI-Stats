@@ -1,5 +1,10 @@
 import { MetadataRoute } from "next";
 import manifestData from "@/data/manifest.json";
+import {
+	getHelpArticleParams,
+	getHelpCategoryParams,
+} from "@/lib/content/helpCenter";
+import { getPublicAppIdsCached } from "@/lib/fetchers/apps/getAppDetails";
 
 type ManifestFile = {
     organisations?: string[];
@@ -38,6 +43,7 @@ const staticRoutes: Array<{
     priority: number;
 }> = [
         { path: "/", changeFrequency: "daily", priority: 1 },
+        { path: "/rankings", changeFrequency: "daily", priority: 0.95 },
         { path: "/models", changeFrequency: "weekly", priority: 0.9 },
         { path: "/api-providers", changeFrequency: "weekly", priority: 0.8 },
         { path: "/benchmarks", changeFrequency: "weekly", priority: 0.8 },
@@ -45,29 +51,28 @@ const staticRoutes: Array<{
         { path: "/families", changeFrequency: "weekly", priority: 0.75 },
         { path: "/subscription-plans", changeFrequency: "weekly", priority: 0.75 },
         { path: "/compare", changeFrequency: "weekly", priority: 0.7 },
-        { path: "/gateway", changeFrequency: "weekly", priority: 0.7 },
+		{ path: "/migrate", changeFrequency: "weekly", priority: 0.7 },
+		{ path: "/gateway", changeFrequency: "weekly", priority: 0.7 },
+		{ path: "/gateway/marketplace", changeFrequency: "weekly", priority: 0.6 },
         { path: "/contribute", changeFrequency: "monthly", priority: 0.6 },
-        { path: "/sources", changeFrequency: "monthly", priority: 0.6 },
         { path: "/roadmap", changeFrequency: "monthly", priority: 0.6 },
         { path: "/tools", changeFrequency: "monthly", priority: 0.65 },
-        { path: "/tools/tokenizer", changeFrequency: "monthly", priority: 0.55 },
         { path: "/tools/json-formatter", changeFrequency: "monthly", priority: 0.55 },
         { path: "/tools/markdown-preview", changeFrequency: "monthly", priority: 0.55 },
         { path: "/tools/request-builder", changeFrequency: "monthly", priority: 0.55 },
+        { path: "/help", changeFrequency: "weekly", priority: 0.6 },
         { path: "/updates", changeFrequency: "weekly", priority: 0.65 },
         { path: "/updates/models", changeFrequency: "weekly", priority: 0.55 },
         { path: "/updates/web", changeFrequency: "weekly", priority: 0.55 },
         { path: "/updates/youtube", changeFrequency: "weekly", priority: 0.55 },
         { path: "/updates/calendar", changeFrequency: "weekly", priority: 0.55 },
-        { path: "/updates/calendar", changeFrequency: "weekly", priority: 0.55 },
-        { path: "/wrapped", changeFrequency: "monthly", priority: 0.5 },
         { path: "/privacy", changeFrequency: "yearly", priority: 0.3 },
         { path: "/terms", changeFrequency: "yearly", priority: 0.3 },
     ];
 
 const MODEL_SUFFIXES: RouteSuffix[] = [
     { suffix: "", changeFrequency: "weekly", priority: 0.78 },
-    { suffix: "/gateway", changeFrequency: "weekly", priority: 0.65 },
+    { suffix: "/quickstart", changeFrequency: "weekly", priority: 0.65 },
     { suffix: "/benchmarks", changeFrequency: "weekly", priority: 0.65 },
     { suffix: "/pricing", changeFrequency: "weekly", priority: 0.6 },
     { suffix: "/availability", changeFrequency: "weekly", priority: 0.6 },
@@ -99,6 +104,10 @@ const PLAN_SUFFIXES: RouteSuffix[] = [
 
 const BENCHMARK_SUFFIXES: RouteSuffix[] = [
     { suffix: "", changeFrequency: "weekly", priority: 0.7 },
+];
+
+const APP_SUFFIXES: RouteSuffix[] = [
+	{ suffix: "", changeFrequency: "weekly", priority: 0.55 },
 ];
 
 function buildRouteUrl(route: string): string {
@@ -189,18 +198,87 @@ function generateItems(
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-    const lastModified = new Date().toISOString();
-    const staticItems = staticRoutes.map((route) =>
-        createItem(route.path, route.changeFrequency, route.priority, lastModified),
-    );
+	const lastModified = new Date().toISOString();
+	const staticItems = staticRoutes.map((route) =>
+		createItem(route.path, route.changeFrequency, route.priority, lastModified),
+	);
 
-    const dynamicItems = [
-        ...generateItems(() => getModelSlugs(manifest.models), "/models", MODEL_SUFFIXES, lastModified),
-        ...generateItems(() => normalizeSlugs(manifest.api_providers), "/api-providers", PROVIDER_SUFFIXES, lastModified),
-        ...generateItems(() => normalizeSlugs(manifest.organisations), "/organisations", ORGANISATION_SUFFIXES, lastModified),
-        ...generateItems(() => normalizeSlugs(manifest.benchmarks), "/benchmarks", BENCHMARK_SUFFIXES, lastModified),
-        ...generateItems(() => normalizeSlugs(manifest.subscription_plans), "/subscription-plans", PLAN_SUFFIXES, lastModified),
-    ];
+	const dynamicItems = [
+		...generateItems(
+			() => getModelSlugs(manifest.models),
+			"/models",
+			MODEL_SUFFIXES,
+			lastModified,
+		),
+		...generateItems(
+			() => normalizeSlugs(manifest.api_providers),
+			"/api-providers",
+			PROVIDER_SUFFIXES,
+			lastModified,
+		),
+		...generateItems(
+			() => normalizeSlugs(manifest.organisations),
+			"/organisations",
+			ORGANISATION_SUFFIXES,
+			lastModified,
+		),
+		...generateItems(
+			() => normalizeSlugs(manifest.benchmarks),
+			"/benchmarks",
+			BENCHMARK_SUFFIXES,
+			lastModified,
+		),
+		...generateItems(
+			() => normalizeSlugs(manifest.subscription_plans),
+			"/subscription-plans",
+			PLAN_SUFFIXES,
+			lastModified,
+		),
+	];
 
-    return [...staticItems, ...dynamicItems];
+	const publicAppIds = await getPublicAppIdsCached();
+	const appItems = applySuffixes("/apps", publicAppIds, APP_SUFFIXES, lastModified);
+
+	const [helpCategoryParams, helpArticleParams] = await Promise.all([
+		getHelpCategoryParams(),
+		getHelpArticleParams(),
+	]);
+	const helpCategoryItems = helpCategoryParams
+		.filter(
+			(entry) =>
+				entry.category &&
+				entry.category !== "__placeholder__",
+		)
+		.map((entry) =>
+			createItem(
+				`/help/${entry.category}`,
+				"weekly",
+				0.55,
+				lastModified,
+			),
+		);
+	const helpArticleItems = helpArticleParams
+		.filter(
+			(entry) =>
+				entry.category &&
+				entry.slug &&
+				entry.category !== "__placeholder__" &&
+				entry.slug !== "__placeholder__",
+		)
+		.map((entry) =>
+			createItem(
+				`/help/${entry.category}/${entry.slug}`,
+				"monthly",
+				0.5,
+				lastModified,
+			),
+		);
+
+	return [
+		...staticItems,
+		...helpCategoryItems,
+		...helpArticleItems,
+		...dynamicItems,
+		...appItems,
+	];
 }

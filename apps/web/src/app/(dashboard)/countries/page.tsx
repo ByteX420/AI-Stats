@@ -22,7 +22,8 @@ export const metadata: Metadata = {
 };
 
 export default async function CountriesPage() {
-	const countries = await getCountrySummariesCached();
+	const includeHidden = false;
+	const countries = await getCountrySummariesCached(includeHidden);
 
 	return (
 		<main className="flex min-h-screen flex-col">

@@ -1,11 +1,13 @@
 // lib/fetchers/models/getModel.ts
 import { cacheLife, cacheTag } from "next/cache";
 import { createClient } from "@/utils/supabase/client";
+import { applyHiddenFilter } from "./visibility";
 
 export interface ModelPage {
     model_id: string;
     name: string;
     organisation_id: string;
+    hidden?: boolean;
     status?: string | null;
     previous_model_id?: string | null;
     announcement_date?: string | null;
@@ -42,34 +44,50 @@ export interface ModelPage {
 }
 
 export interface PricingRule {
-    uuid: string;
-    rule_id?: string | null;
+    rule_id: string;
+    model_key: string;
     provider_id: string;
-    model_id: string;
-    endpoint: string;
+    api_model_id: string;
+    capability_id: string;
+    pricing_plan: string;
     meter: string;
+    unit: string;
     unit_size: number;
-    price_usd_per_unit: string | number;
-    bill_mode: string;
-    bill_from_exclusive?: number | null;
-    bill_to_inclusive?: number | null;
-    bill_source?: string | null;
+    price_per_unit: string | number;
+    currency: string;
+    tiering_mode: string;
     priority: number;
     effective_from: string;
     effective_to?: string | null;
-    conditions: any;
+    match: any[];
 }
 
-export default async function getModel(modelId: string): Promise<ModelPage> {
+const parseModelKey = (modelKey: string) => {
+    const first = modelKey.indexOf(":");
+    const last = modelKey.lastIndexOf(":");
+    if (first <= 0 || last <= first) return null;
+    return {
+        provider_id: modelKey.slice(0, first),
+        api_model_id: modelKey.slice(first + 1, last),
+        capability_id: modelKey.slice(last + 1),
+    };
+};
+
+export default async function getModel(
+    modelId: string,
+    includeHidden: boolean
+): Promise<ModelPage> {
     const supabase = await createClient(); // must allow read via RLS for these tables
 
     console.log("[getModel] Fetching model", modelId);
-    const { data: models, error } = await supabase.from("data_models").select(`
+    const query = applyHiddenFilter(
+        supabase.from("data_models").select(`
         model_id,
         name,
         status,
         previous_model_id,
         organisation_id,
+        hidden,
         announcement_date,
         release_date,
         deprecation_date,
@@ -100,7 +118,10 @@ export default async function getModel(modelId: string): Promise<ModelPage> {
                 link
             )
         )
-    `).eq("model_id", modelId);
+    `),
+        includeHidden
+    );
+    const { data: models, error } = await query.eq("model_id", modelId);
 
     if (error) {
         console.error("[getModel] Supabase error", { modelId, error });
@@ -108,6 +129,9 @@ export default async function getModel(modelId: string): Promise<ModelPage> {
     }
 
     const model = models[0] as unknown as ModelPage;
+    if (!model) {
+        throw new Error("Model not found");
+    }
     console.log("[getModel] Raw row", {
         modelId,
         rows: models?.length ?? 0,
@@ -131,29 +155,55 @@ export default async function getModel(modelId: string): Promise<ModelPage> {
 
     // Fetch pricing rules for this model_id and attach to the response
     try {
-        const { data: pricing, error: pricingError } = await supabase
-            .from("data_api_pricing_rules")
-            .select(`
-                uuid,
-                rule_id,
-                provider_id,
-                model_id,
-                endpoint,
-                meter,
-                unit_size,
-                price_usd_per_unit,
-                bill_mode,
-                bill_from_exclusive,
-                bill_to_inclusive,
-                bill_source,
-                priority,
-                effective_from,
-                effective_to,
-                conditions
-            `)
-            .eq("model_id", modelId)
-            .order("priority", { ascending: true })
-            .order("effective_from", { ascending: false });
+        const { data: providerModels } = await supabase
+            .from("data_api_provider_models")
+            .select("provider_api_model_id, provider_id, api_model_id, internal_model_id")
+            .eq("internal_model_id", modelId);
+
+        const providerModelIds = (providerModels ?? [])
+            .map((row) => row.provider_api_model_id)
+            .filter((id): id is string => Boolean(id));
+
+        const { data: capabilities } = await supabase
+            .from("data_api_provider_model_capabilities")
+            .select("provider_api_model_id, capability_id, status")
+            .in("provider_api_model_id", providerModelIds);
+
+        const modelKeySet = new Set<string>();
+        for (const cap of capabilities ?? []) {
+            if (cap.status === "disabled") continue;
+            const pm = (providerModels ?? []).find(
+                (row) => row.provider_api_model_id === cap.provider_api_model_id
+            );
+            if (!pm || !cap.capability_id) continue;
+            modelKeySet.add(`${pm.provider_id}:${pm.api_model_id}:${cap.capability_id}`);
+        }
+
+        const modelKeys = [...modelKeySet];
+        const { data: pricing, error: pricingError } = modelKeys.length
+            ? await supabase
+                .from("data_api_pricing_rules")
+                .select(`
+                    rule_id,
+                    model_key,
+                    capability_id,
+                    pricing_plan,
+                    meter,
+                    unit,
+                    unit_size,
+                    price_per_unit,
+                    currency,
+                    tiering_mode,
+                    priority,
+                    effective_from,
+                    effective_to,
+                    note,
+                    match
+                `)
+                .in("model_key", modelKeys)
+                .order("priority", { ascending: true })
+                .order("effective_from", { ascending: false })
+            : { data: [], error: null };
 
         if (pricingError) {
             console.warn(
@@ -166,7 +216,24 @@ export default async function getModel(modelId: string): Promise<ModelPage> {
                 modelId,
                 count: pricing?.length ?? 0,
             });
-            model.pricing = pricing as unknown as PricingRule[];
+            model.pricing = (pricing ?? []).map((row: any) => ({
+                rule_id: row.rule_id,
+                model_key: row.model_key,
+                provider_id: parseModelKey(row.model_key)?.provider_id ?? "",
+                api_model_id: parseModelKey(row.model_key)?.api_model_id ?? "",
+                capability_id: row.capability_id ?? parseModelKey(row.model_key)?.capability_id ?? "",
+                pricing_plan: row.pricing_plan ?? "standard",
+                meter: row.meter,
+                unit: row.unit ?? "token",
+                unit_size: Number(row.unit_size ?? 1),
+                price_per_unit: row.price_per_unit,
+                currency: row.currency ?? "USD",
+                tiering_mode: row.tiering_mode ?? "flat",
+                priority: Number(row.priority ?? 100),
+                effective_from: row.effective_from,
+                effective_to: row.effective_to ?? null,
+                match: row.match ?? [],
+            })) as PricingRule[];
         }
     } catch (err) {
         console.warn(
@@ -202,14 +269,19 @@ export interface ModelOverviewPage {
     pricing?: PricingRule[];
 }
 
-export async function getModelOverview(modelId: string): Promise<ModelOverviewPage | null> {
+export async function getModelOverview(
+    modelId: string,
+    includeHidden: boolean
+): Promise<ModelOverviewPage | null> {
     const supabase = await createClient();
 
-    const { data: models, error } = await supabase.from("data_models").select(`
+    const query = applyHiddenFilter(
+        supabase.from("data_models").select(`
         model_id,
         name,
         status,
         organisation_id,
+        hidden,
         announcement_date,
         release_date,
         deprecation_date,
@@ -223,7 +295,10 @@ export async function getModelOverview(modelId: string): Promise<ModelOverviewPa
         model_links: data_model_links(url, platform),
         model_family: data_model_families(family_name),
         model_details: data_model_details(detail_name, detail_value)
-    `).eq("model_id", modelId);
+    `),
+        includeHidden
+    );
+    const { data: models, error } = await query.eq("model_id", modelId);
 
     if (error) {
         throw new Error(error.message || "Failed to fetch models");
@@ -252,7 +327,10 @@ export async function getModelOverview(modelId: string): Promise<ModelOverviewPa
  *
  * Uses `use cache` with a ~1-day-ish lifetime and tagging.
  */
-export async function getModelCached(modelId: string): Promise<ModelPage> {
+export async function getModelCached(
+    modelId: string,
+    includeHidden: boolean
+): Promise<ModelPage> {
     "use cache";
 
     // Rough equivalent of "revalidate: 1 day".
@@ -263,7 +341,7 @@ export async function getModelCached(modelId: string): Promise<ModelPage> {
     cacheTag(`data:models:${modelId}`);
 
     console.log("[getModelCached] Cache-aware fetch for model", modelId);
-    return getModel(modelId);
+    return getModel(modelId, includeHidden);
 }
 
 /**
@@ -275,6 +353,7 @@ export async function getModelCached(modelId: string): Promise<ModelPage> {
  */
 export async function getModelOverviewCached(
     modelId: string,
+    includeHidden: boolean
 ): Promise<ModelOverviewPage | null> {
     "use cache";
 
@@ -288,5 +367,5 @@ export async function getModelOverviewCached(
     cacheTag(`data:models:${modelId}`);
 
     console.log("[getModelOverviewCached] Cache-aware fetch for model overview", modelId);
-    return getModelOverview(modelId);
+    return getModelOverview(modelId, includeHidden);
 }

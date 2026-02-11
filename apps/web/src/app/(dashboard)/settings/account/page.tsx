@@ -1,10 +1,30 @@
-import React from "react";
+import { Suspense } from "react";
 import AccountSettingsClient, {
 	UserPayload,
 } from "@/components/(gateway)/settings/account/AccountSettingsClient";
 import { createClient } from "@/utils/supabase/server";
+import SettingsSectionFallback from "@/components/(gateway)/settings/SettingsSectionFallback";
 
-export default async function AccountSettingsPage() {
+export default function AccountSettingsPage() {
+	return (
+		<div>
+			<header>
+				<h1 className="text-2xl font-bold">Account</h1>
+				<p className="mt-2 text-sm text-muted-foreground">
+					Manage your login credentials, security settings, or delete your
+					account.
+				</p>
+			</header>
+			<div className="mt-6">
+				<Suspense fallback={<SettingsSectionFallback />}>
+					<AccountSettingsContent />
+				</Suspense>
+			</div>
+		</div>
+	);
+}
+
+async function AccountSettingsContent() {
 	const supabase = await createClient();
 
 	// get the authenticated user from Supabase auth
@@ -14,11 +34,8 @@ export default async function AccountSettingsPage() {
 	if (!authUser) {
 		// If no user, render a simple message (you may redirect in your app)
 		return (
-			<div>
-				<h1 className="text-2xl font-bold">Account</h1>
-				<p className="mt-2 text-sm text-muted-foreground">
-					Not signed in.
-				</p>
+			<div className="rounded-lg border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+				Not signed in.
 			</div>
 		);
 	}
@@ -41,6 +58,19 @@ export default async function AccountSettingsPage() {
 		createdAt: userRow?.created_at,
 	};
 
+	// Check if user has MFA enabled
+	const { data: mfaData } = await supabase.auth.mfa.listFactors();
+	const mfaFactor = mfaData?.totp?.find((f) => f.status === "verified");
+	const mfaEnabled = !!mfaFactor;
+	const mfaFactorId = mfaFactor?.id ?? null;
+
+	// Check if user has password (OAuth users don't)
+	// OAuth providers: google, github, gitlab, etc.
+	// Email/password users have provider "email" or undefined
+	const provider = authUser.app_metadata?.provider;
+	const isOAuthUser = provider && provider !== "email";
+	const hasPassword = !isOAuthUser;
+
 	// Fetch teams that the user is a member of via team_members -> teams
 	const { data: teamMembersData } = await supabase
 		.from("team_members")
@@ -56,18 +86,12 @@ export default async function AccountSettingsPage() {
 	}[];
 
 	return (
-		<div>
-			<header>
-				<h1 className="text-2xl font-bold">Account</h1>
-				<p className="mt-2 text-sm text-muted-foreground">
-					Manage your login credentials, security settings, or delete
-					your account.
-				</p>
-			</header>
-
-			<div className="mt-6">
-				<AccountSettingsClient user={user} teams={teams} />
-			</div>
-		</div>
+		<AccountSettingsClient
+			user={user}
+			teams={teams}
+			mfaEnabled={mfaEnabled}
+			mfaFactorId={mfaFactorId}
+			hasPassword={hasPassword}
+		/>
 	);
 }

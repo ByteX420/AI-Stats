@@ -1,5 +1,7 @@
 // lib/fetchers/landing/getModelUpdates.ts
 import { createClient } from "@/utils/supabase/client";
+import { applyHiddenFilter } from "@/lib/fetchers/models/visibility";
+import { cacheLife, cacheTag } from "next/cache";
 
 export type EventType = "Announced" | "Released" | "Deprecated" | "Retired";
 
@@ -24,6 +26,8 @@ type Args = {
     offset?: number;
     now?: Date;
     upcomingLimit?: number;
+    pastMonths?: number;
+    includeHidden?: boolean;
 };
 
 type Row = {
@@ -97,13 +101,27 @@ function compareAscending(a: ModelEvent, b: ModelEvent) {
 }
 
 export async function getRecentModelUpdatesSplit(
-    { limit = 5, offset = 0, now = new Date(), upcomingLimit = 5 }: Args = {}
+    {
+        limit = 5,
+        offset = 0,
+        now: nowInput,
+        upcomingLimit = 5,
+        pastMonths,
+        includeHidden = false,
+    }: Args = {}
 ): Promise<ModelEventSegments> {
+    "use cache";
+    cacheLife("hours");
+    cacheTag("data:model-updates");
+    cacheTag("data:models");
+
+    const now = nowInput ?? new Date();
     const supabase = await createClient();
 
-    const { data, error } = await supabase
-        .from("data_models")
-        .select(`
+    const { data, error } = await applyHiddenFilter(
+        supabase
+            .from("data_models")
+            .select(`
             model_id,
             name,
             organisation_id,
@@ -113,10 +131,12 @@ export async function getRecentModelUpdatesSplit(
             retirement_date,
             organisation:data_organisations!data_models_organisation_id_fkey(organisation_id,name)
         `)
-        .or(
-            "announcement_date.not.is.null,release_date.not.is.null,deprecation_date.not.is.null,retirement_date.not.is.null"
-        )
-        .overrideTypes<Row[], { merge: false }>();
+            .or(
+                "announcement_date.not.is.null,release_date.not.is.null,deprecation_date.not.is.null,retirement_date.not.is.null"
+            )
+            .overrideTypes<Row[], { merge: false }>(),
+        includeHidden
+    );
 
     if (error) throw error;
 
@@ -158,7 +178,14 @@ export async function getRecentModelUpdatesSplit(
     const sortedPast = [...pastMap.values()].sort(compareDescending);
     const sortedFuture = [...futureMap.values()].sort(compareAscending);
 
-    const past = sortedPast.slice(offset, offset + limit);
+    const since = pastMonths ? new Date(now.getTime() - pastMonths * 30 * 24 * 60 * 60 * 1000) : null;
+    let filteredPast = sortedPast;
+    if (since) {
+        filteredPast = sortedPast.filter(e => new Date(e.date) >= since);
+    }
+
+    const effectiveLimit = pastMonths ? 10000 : limit;
+    const past = filteredPast.slice(offset, offset + effectiveLimit);
     const future = sortedFuture.slice(0, upcomingLimit);
 
     return { past, future };
@@ -170,4 +197,3 @@ export default async function getRecentModelUpdates(
     const { past } = await getRecentModelUpdatesSplit(args);
     return past;
 }
-

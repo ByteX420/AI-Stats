@@ -1,14 +1,26 @@
-import React from "react";
+import { Suspense } from "react";
 import { createClient } from "@/utils/supabase/server";
 import CreateKeyDialog from "@/components/(gateway)/settings/keys/CreateKeyDialog";
 import KeysPanel from "@/components/(gateway)/settings/keys/KeysPanel";
 import { getTeamIdFromCookie } from "@/utils/teamCookie";
+import SettingsSectionFallback from "@/components/(gateway)/settings/SettingsSectionFallback";
 
 export const metadata = {
 	title: "API Keys - Settings",
 };
 
-export default async function KeysPage() {
+export default function KeysPage() {
+	return (
+		<div className="space-y-6">
+			<h1 className="text-2xl font-bold">API Keys</h1>
+			<Suspense fallback={<SettingsSectionFallback />}>
+				<KeysContent />
+			</Suspense>
+		</div>
+	);
+}
+
+async function KeysContent() {
 	const supabase = await createClient();
 
 	// get current user
@@ -16,16 +28,16 @@ export default async function KeysPage() {
 		data: { user },
 	} = await supabase.auth.getUser();
 
-	// fetch API keys and team memberships for current user
-	const { data: apiKeys } = await supabase.from("keys").select("*");
+	const initialTeamId = await getTeamIdFromCookie();
+
+	// fetch API keys for the active team
+	const { data: apiKeys } = await supabase.from("keys").select("*").eq("team_id", initialTeamId);
 
 	// fetch teams the user belongs to (assumes a `team_users` join table)
 	const { data: teamUsers } = await supabase
 		.from("team_members")
 		.select("team_id, teams(id, name)")
 		.eq("user_id", user?.id);
-
-	const initialTeamId = await getTeamIdFromCookie();
 
 	// build a teams list including a personal/personal-like fallback
 	const teams: any[] = [];
@@ -41,30 +53,22 @@ export default async function KeysPage() {
 		}
 	}
 
-	const keysArray = (apiKeys ?? []).map((k: any) => ({ ...k }));
+	const keysArray = (apiKeys ?? []).map((k: any) => ({ ...k, last_used_at: null, current_usage_daily: 0 }));
 
-	// group keys by team id
-	const teamsWithKeys = teams.map((t) => ({
-		...t,
-		keys: keysArray.filter(
-			(k: any) => (k.team_id ?? null) === (t.id ?? null)
-		),
-	}));
+	// find the active team
+	const activeTeam = teams.find((t) => t.id === initialTeamId);
+
+	const teamsWithKeys = activeTeam ? [{ ...activeTeam, keys: keysArray }] : [];
 
 	return (
 		<div className="space-y-6">
-			<div className="flex items-center justify-between">
-				<h1 className="text-2xl font-bold">API Keys</h1>
-				<div className="flex items-center gap-2">
-					<CreateKeyDialog
-						currentUserId={user?.id}
-						currentTeamId={initialTeamId}
-						teams={teams}
-					/>
-				</div>
+			<div className="flex items-center justify-end">
+				<CreateKeyDialog
+					currentUserId={user?.id}
+					currentTeamId={initialTeamId}
+					teams={teams}
+				/>
 			</div>
-
-			{/* Keys panel - client component for managing/per-key actions */}
 			<KeysPanel
 				teamsWithKeys={teamsWithKeys}
 				initialTeamId={initialTeamId}

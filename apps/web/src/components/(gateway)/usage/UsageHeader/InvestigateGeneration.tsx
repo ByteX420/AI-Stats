@@ -12,80 +12,42 @@ import {
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Search } from "lucide-react";
+import { investigateGeneration } from "@/app/(dashboard)/gateway/usage/server-actions";
 
-export default function InvestigateGeneration() {
+interface InvestigateGenerationProps {
+	iconOnly?: boolean;
+}
+
+export default function InvestigateGeneration({
+	iconOnly = false,
+}: InvestigateGenerationProps) {
 	const [open, setOpen] = React.useState(false);
 	const [id, setId] = React.useState("");
 	const [loading, setLoading] = React.useState(false);
 	const [result, setResult] = React.useState<any | null>(null);
-	const [apiKey, setApiKey] = React.useState("");
-
-	React.useEffect(() => {
-		if (typeof window === "undefined") return;
-		try {
-			const stored = window.localStorage.getItem(
-				"aistats_gateway_api_key"
-			);
-			if (stored) setApiKey(stored);
-		} catch {
-			// ignore storage errors
-		}
-	}, []);
-
-	React.useEffect(() => {
-		if (typeof window === "undefined") return;
-		try {
-			if (apiKey) {
-				window.localStorage.setItem("aistats_gateway_api_key", apiKey);
-			} else {
-				window.localStorage.removeItem("aistats_gateway_api_key");
-			}
-		} catch {
-			// ignore storage errors
-		}
-	}, [apiKey]);
 
 	async function onSubmit(e: React.FormEvent) {
 		e.preventDefault();
-		if (!id.trim()) return;
+		if (!id.trim()) {
+			toast.error("Please enter a request ID");
+			return;
+		}
+
 		try {
-			if (!apiKey.trim()) {
-				toast.error("Gateway API key required");
-				return;
-			}
 			setLoading(true);
 			setResult(null);
-			const base = (
-				process.env.NEXT_PUBLIC_GATEWAY_API_BASE_URL ?? ""
-			).replace(/\/+$/, "");
-			const target = `${base}/v1/generation?id=${encodeURIComponent(
-				id.trim()
-			)}`;
-			const res = await fetch(
-				target.startsWith("http")
-					? target
-					: target ||
-							"/v1/generation?id=" +
-								encodeURIComponent(id.trim()),
-				{
-					cache: "no-store",
-					headers: {
-						Authorization: `Bearer ${apiKey.trim()}`,
-					},
-				}
-			);
-			if (!res.ok) {
-				toast.error(
-					res.status === 404
-						? "Not found / not authorized"
-						: "Failed to fetch"
-				);
+
+			const response = await investigateGeneration(id.trim());
+
+			if (!response.success) {
+				toast.error(response.error || "Failed to fetch request");
 				return;
 			}
-			const json = await res.json();
-			setResult(json);
+
+			setResult(response.data);
 			toast.success("Loaded generation");
-		} catch {
+		} catch (error) {
+			console.error("Investigation error:", error);
 			toast.error("Failed to load generation");
 		} finally {
 			setLoading(false);
@@ -95,9 +57,14 @@ export default function InvestigateGeneration() {
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger asChild>
-				<Button variant="outline">
-					<Search className="mr-2" />
-					Investigate Generation
+				<Button
+					variant="outline"
+					size={iconOnly ? "icon" : "default"}
+					aria-label="Investigate generation"
+					title="Investigate generation"
+				>
+					<Search className={iconOnly ? "h-4 w-4" : "mr-2 h-4 w-4"} />
+					{iconOnly ? null : "Investigate Generation"}
 				</Button>
 			</DialogTrigger>
 			<DialogContent
@@ -118,12 +85,6 @@ export default function InvestigateGeneration() {
 							{loading ? "Loading..." : "Lookup"}
 						</Button>
 					</div>
-					<Input
-						type="password"
-						placeholder="Gateway API key"
-						value={apiKey}
-						onChange={(e) => setApiKey(e.target.value)}
-					/>
 				</form>
 				{result ? (
 					<div className="max-h-[60vh] overflow-auto">

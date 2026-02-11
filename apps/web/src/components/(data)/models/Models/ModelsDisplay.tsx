@@ -5,7 +5,12 @@ import { usePathname } from "next/navigation";
 import { debounce, useQueryState } from "nuqs";
 import { ModelsGrid } from "./ModelsGrid";
 import { Input } from "@/components/ui/input";
-import { Search, Grid as GridIcon, Table as TableIcon } from "lucide-react";
+import {
+	Search,
+	Grid as GridIcon,
+	Table as TableIcon,
+	Layers as LayersIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
 	Tooltip,
@@ -14,22 +19,28 @@ import {
 } from "@/components/ui/tooltip";
 import { ModelCard } from "@/lib/fetchers/models/getAllModels";
 import { qParser, yearParser } from "@/app/(dashboard)/models/search-params";
+import { UPCOMING_TAB_VALUE, UNKNOWN_TAB_VALUE } from "@/lib/models/modelTabs";
 
 interface ModelsDisplayProps {
 	models: ModelCard[];
 	years: number[];
 	activeYear: number | null;
+	hasUpcoming: boolean;
+	hasUnknown: boolean;
 }
 
 export default function ModelsDisplay({
 	models,
 	years,
 	activeYear,
+	hasUpcoming,
+	hasUnknown,
 }: ModelsDisplayProps) {
 	const [search, setSearch] = useQueryState("q", qParser);
 	const [, setYear] = useQueryState("year", yearParser);
 	const pathname = usePathname();
 	const isTable = pathname?.includes("/models/table");
+	const isCollections = pathname?.includes("/models/collections");
 
 	return (
 		<>
@@ -67,11 +78,11 @@ export default function ModelsDisplay({
 								<TooltipTrigger asChild>
 									<Button
 										size="sm"
-										asChild
 										variant={
 											isTable ? "default" : "outline"
 										}
 										className="px-3 py-1 text-xs whitespace-nowrap rounded-none"
+										asChild
 									>
 										<Link
 											href="/models/table"
@@ -83,6 +94,31 @@ export default function ModelsDisplay({
 								</TooltipTrigger>
 								<TooltipContent side="top">
 									Table view
+								</TooltipContent>
+							</Tooltip>
+
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										size="sm"
+										variant={
+											isCollections
+												? "default"
+												: "outline"
+										}
+										className="px-3 py-1 text-xs whitespace-nowrap rounded-none"
+										asChild
+									>
+										<Link
+											href="/models/collections"
+											aria-label="Collections view"
+										>
+											<LayersIcon className="h-4 w-4" />
+										</Link>
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent side="top">
+									Collections
 								</TooltipContent>
 							</Tooltip>
 						</div>
@@ -109,6 +145,21 @@ export default function ModelsDisplay({
 			<div className="mb-4 -mx-1 overflow-x-auto">
 				<div className="flex items-center justify-between px-1 pb-1 gap-2">
 					<div className="flex gap-2">
+						{hasUpcoming ? (
+							<Button
+								key="upcoming"
+								size="sm"
+								variant={
+									activeYear === UPCOMING_TAB_VALUE
+										? "default"
+										: "outline"
+								}
+								onClick={() => setYear(UPCOMING_TAB_VALUE)}
+								className="px-3 py-1 text-xs whitespace-nowrap rounded-full"
+							>
+								Upcoming
+							</Button>
+						) : null}
 						{years.length > 0 &&
 							years.map((year) => (
 								<Button
@@ -125,6 +176,21 @@ export default function ModelsDisplay({
 									{year}
 								</Button>
 							))}
+						{hasUnknown ? (
+							<Button
+								key="unknown"
+								size="sm"
+								variant={
+									activeYear === UNKNOWN_TAB_VALUE
+										? "default"
+										: "outline"
+								}
+								onClick={() => setYear(UNKNOWN_TAB_VALUE)}
+								className="px-3 py-1 text-xs whitespace-nowrap rounded-full"
+							>
+								Unknown
+							</Button>
+						) : null}
 					</div>
 
 					{/* Desktop tabs aligned to the right of the years row */}
@@ -157,11 +223,11 @@ export default function ModelsDisplay({
 								<TooltipTrigger asChild>
 									<Button
 										size="sm"
-										asChild
 										variant={
 											isTable ? "default" : "outline"
 										}
 										className="px-3 py-1 text-xs whitespace-nowrap rounded-none"
+										asChild
 									>
 										<Link
 											href="/models/table"
@@ -173,6 +239,31 @@ export default function ModelsDisplay({
 								</TooltipTrigger>
 								<TooltipContent side="top">
 									Table view
+								</TooltipContent>
+							</Tooltip>
+
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										size="sm"
+										variant={
+											isCollections
+												? "default"
+												: "outline"
+										}
+										className="px-3 py-1 text-xs whitespace-nowrap rounded-none"
+										asChild
+									>
+										<Link
+											href="/models/collections"
+											aria-label="Collections view"
+										>
+											<LayersIcon className="h-4 w-4" />
+										</Link>
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent side="top">
+									Collections
 								</TooltipContent>
 							</Tooltip>
 						</div>

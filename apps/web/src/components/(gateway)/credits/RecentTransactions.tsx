@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useQueryState } from "nuqs";
 import {
 	Pagination,
@@ -11,7 +11,7 @@ import {
 	PaginationEllipsis,
 	PaginationLink,
 } from "@/components/ui/pagination";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
 	ExternalLink,
 	ArrowDownCircle,
@@ -34,7 +34,23 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type Transaction = {
 	id: string;
@@ -46,6 +62,8 @@ type Transaction = {
 	kind?: string | null; // e.g. 'topup', 'charge', 'auto_topup', 'adjustment'
 	ref_type?: string | null; // e.g. 'payment_intent'
 	ref_id?: string | null; // e.g. 'pi_xxx'
+	source_ref_type?: string | null;
+	source_ref_id?: string | null;
 	before_balance_nanos?: number | null; // bigint nanos
 	after_balance_nanos?: number | null; // bigint nanos
 };
@@ -57,8 +75,22 @@ interface Props {
 	currency?: string; // default "USD"
 }
 
+const REFUND_WINDOW_MS = 24 * 60 * 60 * 1000;
+const TOP_UP_KINDS = new Set(["top_up", "top_up_one_off", "auto_top_up"]);
+const PAID_STATUSES = new Set(["paid", "succeeded"]);
+const REFUND_REASON_OPTIONS = [
+	{ value: "no_comment", label: "No comment" },
+	{ value: "accidental_purchase", label: "Accidental purchase" },
+	{ value: "duplicate_purchase", label: "Duplicate purchase" },
+	{ value: "wrong_amount", label: "Wrong amount selected" },
+	{ value: "testing_only", label: "Testing / sandbox use" },
+	{ value: "no_longer_needed", label: "No longer needed" },
+	{ value: "other", label: "Other" },
+] as const;
+type RefundReasonValue = (typeof REFUND_REASON_OPTIONS)[number]["value"];
+
 function formatNanos(nanos?: number | null, currency = "USD") {
-	const val = (nanos ?? 0) / 10_000_000;
+        const val = (nanos ?? 0) / 1_000_000_000;
 	try {
 		return new Intl.NumberFormat("en-US", {
 			style: "currency",
@@ -233,10 +265,45 @@ function amountPill(nanos?: number | null, currency = "USD") {
 			)}
 		>
 			{(positive || negative) && <Icon className="h-4 w-4" aria-hidden />}
-			{positive ? "+" : negative ? "−" : ""}
+			{positive ? "+" : negative ? "-" : ""}
 			{formatNanos(Math.abs(n), currency)}
 		</span>
 	);
+}
+
+function parsePaymentIntentId(tx: Transaction): string | null {
+	if (!tx.ref_id || !tx.ref_type) return null;
+	const refType = String(tx.ref_type).toLowerCase();
+	if (refType !== "stripe_payment_intent") return null;
+	const id = String(tx.ref_id).trim();
+	return id.startsWith("pi_") ? id : null;
+}
+
+function isRefundEligible(tx: Transaction): { ok: boolean; reason?: string } {
+	const kind = String(tx.kind ?? "").toLowerCase();
+	if (!TOP_UP_KINDS.has(kind)) {
+		return { ok: false, reason: "Only top-ups are refundable." };
+	}
+
+	const status = String(tx.status ?? "").toLowerCase();
+	if (!PAID_STATUSES.has(status)) {
+		return { ok: false, reason: "This purchase is not in a paid state." };
+	}
+
+	if (!parsePaymentIntentId(tx)) {
+		return { ok: false, reason: "Missing payment intent." };
+	}
+
+	const createdAt = tx.created_at ? new Date(tx.created_at).getTime() : NaN;
+	if (!Number.isFinite(createdAt)) {
+		return { ok: false, reason: "Missing purchase timestamp." };
+	}
+
+	if (Date.now() - createdAt > REFUND_WINDOW_MS) {
+		return { ok: false, reason: "Refund window (24h) has expired." };
+	}
+
+	return { ok: true };
 }
 
 export default function RecentTransactions({
@@ -245,6 +312,11 @@ export default function RecentTransactions({
 	stripeCustomerId,
 	currency = "USD",
 }: Props) {
+	const router = useRouter();
+	const [actionBusy, setActionBusy] = useState<Record<string, boolean>>({});
+	const [refundDialogTx, setRefundDialogTx] = useState<Transaction | null>(null);
+	const [refundReason, setRefundReason] =
+		useState<RefundReasonValue>("no_comment");
 	const [pageStr, setPageStr] = useQueryState("tx_page", {
 		defaultValue: "0",
 	});
@@ -262,6 +334,27 @@ export default function RecentTransactions({
 		const start = page * pageSize;
 		return transactions.slice(start, start + pageSize);
 	}, [transactions, page, pageSize]);
+	const activeRefundSourceIds = useMemo(() => {
+		const activeStatuses = new Set([
+			"pending",
+			"processing",
+			"applying",
+			"succeeded",
+		]);
+		const ids = new Set<string>();
+		for (const tx of transactions) {
+			const kind = String(tx.kind ?? "").toLowerCase();
+			if (kind !== "refund" && kind !== "refunded") continue;
+			const status = String(tx.status ?? "").toLowerCase();
+			if (!activeStatuses.has(status)) continue;
+			const sourceType = String(tx.source_ref_type ?? "").toLowerCase();
+			const sourceId = String(tx.source_ref_id ?? "").trim();
+			if (sourceType === "stripe_payment_intent" && sourceId.startsWith("pi_")) {
+				ids.add(sourceId);
+			}
+		}
+		return ids;
+	}, [transactions]);
 
 	const pathname = usePathname() || "/";
 	const searchParams = useSearchParams();
@@ -272,14 +365,99 @@ export default function RecentTransactions({
 		return `${pathname}?${params.toString()}`;
 	}
 
+	const setBusy = (id: string, value: boolean) => {
+		setActionBusy((prev) => ({ ...prev, [id]: value }));
+	};
+
+	async function openDocument(tx: Transaction) {
+		const paymentIntentId = parsePaymentIntentId(tx);
+		if (!paymentIntentId) {
+			toast.error("No invoice or receipt is available for this row.");
+			return;
+		}
+		setBusy(tx.id, true);
+		try {
+			const response = await fetch("/api/stripe/purchases/document", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ paymentIntentId }),
+			});
+			const payload = await response.json().catch(() => ({}));
+			if (!response.ok || !payload?.url) {
+				throw new Error(payload?.error ?? "Document lookup failed");
+			}
+			window.open(String(payload.url), "_blank", "noopener,noreferrer");
+			toast.success(payload?.message ?? "Opened document");
+		} catch (error: any) {
+			toast.error(error?.message ?? "Failed to fetch document");
+		} finally {
+			setBusy(tx.id, false);
+		}
+	}
+
+	async function requestRefund(tx: Transaction, reason: string): Promise<boolean> {
+		const paymentIntentId = parsePaymentIntentId(tx);
+		if (!paymentIntentId) {
+			toast.error("No payment intent found for this purchase.");
+			return false;
+		}
+		setBusy(tx.id, true);
+		try {
+			const result = await toast.promise(
+				(async () => {
+					const response = await fetch("/api/stripe/refunds/request", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ paymentIntentId, reason }),
+					});
+					const payload = await response.json().catch(() => ({}));
+					if (!response.ok) {
+						throw new Error(
+							payload?.error ?? "Refund request failed",
+						);
+					}
+					return payload;
+				})(),
+				{
+					loading: "Submitting refund request...",
+					success: (result) =>
+						result?.message ?? "Refund request submitted",
+					error: (err) =>
+						err?.message ?? "Failed to submit refund request",
+				},
+			);
+			const params = new URLSearchParams(Array.from(searchParams.entries()));
+			const nextStatus =
+				String((result as any)?.status ?? "").toLowerCase() === "succeeded"
+					? "succeeded"
+					: "processing";
+			params.set("refund", nextStatus);
+			params.delete("payment_attempt");
+			const nextHref = `${pathname}${params.toString() ? `?${params.toString()}` : ""}`;
+			router.replace(nextHref, { scroll: false });
+			router.refresh();
+			return true;
+		} catch {
+			return false;
+		} finally {
+			setBusy(tx.id, false);
+		}
+	}
+
 	return (
 		<section>
 			<Card>
 				<CardHeader>
 					<div className="w-full flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-						<CardTitle className="m-0">
-							Recent Transactions
-						</CardTitle>
+						<div>
+							<CardTitle className="m-0">
+								Recent Transactions
+							</CardTitle>
+							<p className="mt-1 text-xs text-muted-foreground">
+								Self-serve refunds are available for eligible top-ups within
+								24 hours if that purchased credit lot has not been used.
+							</p>
+						</div>
 						<Button
 							variant="ghost"
 							size="sm"
@@ -339,6 +517,9 @@ export default function RecentTransactions({
 										<th className="py-2 pl-4 w-40 text-right">
 											Balance
 										</th>
+										<th className="py-2 pl-4 w-48 text-right">
+											Actions
+										</th>
 									</tr>
 								</thead>
 								<tbody className="divide-y">
@@ -355,6 +536,20 @@ export default function RecentTransactions({
 											t.before_balance_nanos ?? null;
 										const after =
 											t.after_balance_nanos ?? null;
+										const paymentIntentId =
+											parsePaymentIntentId(t);
+										const baseEligibility =
+											isRefundEligible(t);
+										const refundEligibility =
+											baseEligibility.ok &&
+											paymentIntentId &&
+											activeRefundSourceIds.has(paymentIntentId)
+												? {
+														ok: false,
+														reason: "A refund for this purchase is already in progress or completed.",
+													}
+												: baseEligibility;
+										const busy = Boolean(actionBusy[t.id]);
 
 										return (
 											<tr
@@ -403,7 +598,7 @@ export default function RecentTransactions({
 													)}
 												</td>
 
-												{/* Balance after + before→after tooltip */}
+												{/* Balance after + before->after tooltip */}
 												<td className="py-3 pl-4 text-right">
 													{after !== null ? (
 														<Tooltip>
@@ -425,7 +620,7 @@ export default function RecentTransactions({
 																		? `${formatNanos(
 																				before,
 																				currency
-																		  )} → ${formatNanos(
+																		  )} -> ${formatNanos(
 																				after,
 																				currency
 																		  )}`
@@ -438,7 +633,48 @@ export default function RecentTransactions({
 														</Tooltip>
 													) : (
 														<span className="text-muted-foreground">
-															—
+															-
+														</span>
+													)}
+												</td>
+												<td className="py-3 pl-4">
+													{paymentIntentId ? (
+														<div className="flex items-center justify-end gap-2">
+															<Button
+																size="sm"
+																variant="outline"
+																disabled={busy}
+																onClick={() =>
+																	openDocument(
+																		t,
+																	)
+																}
+															>
+																Invoice
+															</Button>
+															<Button
+																size="sm"
+																variant="outline"
+																disabled={
+																	busy ||
+																	!refundEligibility.ok
+																}
+																title={
+																	refundEligibility.ok
+																		? "Refund this purchase"
+																		: refundEligibility.reason
+																}
+																onClick={() => {
+																	setRefundDialogTx(t);
+																	setRefundReason("no_comment");
+																}}
+															>
+																Refund
+															</Button>
+														</div>
+													) : (
+														<span className="text-xs text-muted-foreground float-right">
+															-
 														</span>
 													)}
 												</td>
@@ -542,6 +778,85 @@ export default function RecentTransactions({
 					</div>
 				</CardContent>
 			</Card>
+
+			<Dialog
+				open={Boolean(refundDialogTx)}
+				onOpenChange={(open) => {
+					if (!open && refundDialogTx && !actionBusy[refundDialogTx.id]) {
+						setRefundDialogTx(null);
+						setRefundReason("no_comment");
+					}
+				}}
+			>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Request refund?</DialogTitle>
+						<DialogDescription>
+							Select an optional reason for this self-serve refund request.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="space-y-2">
+						<p className="text-xs text-muted-foreground">
+							Reason is optional and logged for audit.
+						</p>
+						<Select
+							value={refundReason}
+							onValueChange={(value) =>
+								setRefundReason(value as RefundReasonValue)
+							}
+							disabled={Boolean(refundDialogTx && actionBusy[refundDialogTx.id])}
+						>
+							<SelectTrigger>
+								<SelectValue placeholder="No comment" />
+							</SelectTrigger>
+							<SelectContent>
+								{REFUND_REASON_OPTIONS.map((option) => (
+									<SelectItem key={option.value} value={option.value}>
+										{option.label}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => {
+								setRefundDialogTx(null);
+								setRefundReason("no_comment");
+							}}
+							disabled={Boolean(refundDialogTx && actionBusy[refundDialogTx.id])}
+						>
+							Cancel
+						</Button>
+						<Button
+							type="button"
+							variant="destructive"
+							disabled={
+								!refundDialogTx ||
+								Boolean(actionBusy[refundDialogTx.id])
+							}
+							onClick={async () => {
+								if (!refundDialogTx) return;
+								const ok = await requestRefund(
+									refundDialogTx,
+									refundReason.trim(),
+								);
+								if (ok) {
+									setRefundDialogTx(null);
+									setRefundReason("no_comment");
+								}
+							}}
+						>
+							{refundDialogTx && actionBusy[refundDialogTx.id]
+								? "Submitting..."
+								: "Submit Refund"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</section>
 	);
 }
+

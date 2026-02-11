@@ -1,15 +1,20 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { createClient } from "@/utils/supabase/server";
 import { getTeamIdFromCookie } from "@/utils/teamCookie";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import UsageOverviewChart from "@/components/(gateway)/usage/UsageOverviewChart";
-import UsageStatCards from "@/components/(gateway)/usage/UsageHeader/UsageStatCards";
-import TopModels from "@/components/(gateway)/usage/TopModels";
-import ErrorsPanel from "@/components/(gateway)/usage/ErroredRequests/ErrorsPanel";
 import UsageHeader from "@/components/(gateway)/usage/UsageHeader/UsageHeader";
-import RecentRequestsPanel from "@/components/(gateway)/usage/SuccessfulRequests/RecentRequestsPanel";
 import DeprecationWarnings from "@/components/(gateway)/usage/DeprecationWarnings/DeprecationWarnings";
-import { redirect } from 'next/navigation';
+import MetricsOverview from "@/components/(gateway)/usage/MetricsOverview";
+import RequestsSection from "@/components/(gateway)/usage/RequestsSection";
+import { getDeprecationWarningsForTeam } from "@/lib/fetchers/usage/deprecationWarnings";
+import {
+	fetchOrganizationColors,
+	fetchAppNames,
+	fetchModelMetadata,
+	fetchProviderNames,
+} from "./server-actions";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
 	title: "Usage - AI Stats Gateway",
@@ -59,45 +64,74 @@ function fromForRange(key: RangeKey): Date {
 	return d;
 }
 
-export default async function Page({
-    searchParams,
-}: {
-    searchParams: Promise<Record<string, string | string[] | undefined>>;
+export default function Page(props: {
+	searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-    const supabase = await createClient();
+	return (
+		<Suspense
+			fallback={
+				<main className="flex min-h-screen flex-col">
+					<div className="container mx-auto px-4 py-8">
+						<Card>
+							<CardHeader>
+								<CardTitle>Usage</CardTitle>
+							</CardHeader>
+							<CardContent>
+								<p className="text-sm text-muted-foreground">
+									Loading usage data...
+								</p>
+							</CardContent>
+						</Card>
+					</div>
+				</main>
+			}
+		>
+			<UsagePageContent searchParams={props.searchParams} />
+		</Suspense>
+	);
+}
+
+async function UsagePageContent({
+	searchParams,
+}: {
+	searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+	const supabase = await createClient();
 
 	// Check if user signed in
-	const { data: { user } } = await supabase.auth.getUser();
+	const {
+		data: { user },
+	} = await supabase.auth.getUser();
 
 	if (!user) {
-		redirect('/sign-in');
+		redirect("/sign-in");
 	}
 
 	const teamId = await getTeamIdFromCookie();
 
-    const sp = await searchParams;
-    const range = parseRange(
-        typeof sp?.range === "string"
-            ? sp?.range
-            : Array.isArray(sp?.range)
-            ? sp?.range?.[0]
-            : undefined
-    );
-    const groupParam =
-        typeof sp?.group === "string"
-            ? sp.group
-            : Array.isArray(sp?.group)
-            ? sp.group?.[0]
-            : undefined;
-    const groupBy = parseGroup(groupParam);
-    // Optional key filter coming from Settings/Keys "Usage" action
-    const keyParam =
-        typeof sp?.key === "string"
-            ? sp.key
-            : Array.isArray(sp?.key)
-            ? sp.key?.[0]
-            : undefined;
-    let activeKey: ApiKeyOption | null = null;
+	const sp = await searchParams;
+	const range = parseRange(
+		typeof sp?.range === "string"
+			? sp?.range
+			: Array.isArray(sp?.range)
+				? sp?.range?.[0]
+				: undefined,
+	);
+	const groupParam =
+		typeof sp?.group === "string"
+			? sp.group
+			: Array.isArray(sp?.group)
+				? sp.group?.[0]
+				: undefined;
+	const groupBy = parseGroup(groupParam);
+	// Optional key filter coming from Settings/Keys "Usage" action
+	const keyParam =
+		typeof sp?.key === "string"
+			? sp.key
+			: Array.isArray(sp?.key)
+				? sp.key?.[0]
+				: undefined;
+	let activeKey: ApiKeyOption | null = null;
 	// pagination removed (no full table)
 
 	if (!teamId) {
@@ -120,23 +154,63 @@ export default async function Page({
 		);
 	}
 
-    const { data: keyRows } = await supabase
-        .from("keys")
-        .select("id,name,prefix")
-        .eq("team_id", teamId)
-        .order("created_at", { ascending: true });
-    const availableKeys: ApiKeyOption[] =
-        (keyRows ?? []).map((row: any) => ({
-            id: row.id,
-            name: row?.name ?? null,
-            prefix: row?.prefix ?? null,
-        }));
-    if (keyParam) {
-        activeKey = availableKeys.find((k) => k.id === keyParam) ?? null;
-    }
+	const { data: keyRows } = await supabase
+		.from("keys")
+		.select("id,name,prefix")
+		.eq("team_id", teamId)
+		.order("created_at", { ascending: true });
+	const availableKeys: ApiKeyOption[] = (keyRows ?? []).map((row: any) => ({
+		id: row.id,
+		name: row?.name ?? null,
+		prefix: row?.prefix ?? null,
+	}));
+	if (keyParam) {
+		activeKey = availableKeys.find((k) => k.id === keyParam) ?? null;
+	}
+	const lifecycleWarnings = await getDeprecationWarningsForTeam(teamId);
+	const lifecycleAlertCount = lifecycleWarnings.length;
 
 	const from = fromForRange(range).toISOString();
 	const nowIso = new Date().toISOString();
+
+	// Fetch aggregated data for unique models, providers, and apps
+	const { data: uniqueData } = await supabase
+		.from("gateway_requests")
+		.select("model_id, provider, app_id")
+		.eq("team_id", teamId)
+		.gte("created_at", from)
+		.lte("created_at", nowIso);
+	// Extract unique values for filters
+	const uniqueModels = Array.from(new Set((uniqueData ?? []).map((r: any) => r.model_id).filter(Boolean)));
+	const uniqueProviders = Array.from(new Set((uniqueData ?? []).map((r: any) => r.provider).filter(Boolean)));
+	const uniqueAppIds = Array.from(new Set((uniqueData ?? []).map((r: any) => r.app_id).filter(Boolean)));
+	const modelProviders = (() => {
+		const providerSetsByModel = new Map<string, Set<string>>();
+		for (const row of uniqueData ?? []) {
+			const modelId =
+				typeof row?.model_id === "string" ? row.model_id : null;
+			const providerId =
+				typeof row?.provider === "string" ? row.provider : null;
+			if (!modelId || !providerId) continue;
+			if (!providerSetsByModel.has(modelId)) {
+				providerSetsByModel.set(modelId, new Set<string>());
+			}
+			providerSetsByModel.get(modelId)!.add(providerId);
+		}
+		return new Map(
+			Array.from(providerSetsByModel.entries()).map(([modelId, providers]) => [
+				modelId,
+				Array.from(providers),
+			]),
+		);
+	})();
+
+	// Fetch organization colors, model metadata, and app names
+	const colorMap = await fetchOrganizationColors(uniqueModels);
+	const modelMetadata = await fetchModelMetadata(uniqueModels);
+	const providerNames = await fetchProviderNames(uniqueProviders);
+	const appNames = await fetchAppNames(uniqueAppIds);
+
 	// previous window (same duration before 'from')
 	const fromDate = fromForRange(range);
 	const nowDate = new Date();
@@ -147,45 +221,45 @@ export default async function Page({
 	// 1) Pull series source data (limited) for charts
 	const SERIES_MAX = 5000;
 
-    let seriesQuery = supabase
-        .from("gateway_requests")
-        .select(
-            "request_id,created_at,provider,model_id,key_id,app_id,usage,cost_nanos,generation_ms,currency,success"
-        )
-        .eq("team_id", teamId)
-        .gte("created_at", from)
-        .lte("created_at", nowIso)
-        .order("created_at", { ascending: true })
-        .limit(SERIES_MAX);
-    if (activeKey) seriesQuery = seriesQuery.eq("key_id", activeKey.id);
-    const { data: seriesRows, error } = await seriesQuery;
+	let seriesQuery = supabase
+		.from("gateway_requests")
+		.select(
+			"request_id,created_at,provider,model_id,key_id,app_id,usage,cost_nanos,generation_ms,currency,success",
+		)
+		.eq("team_id", teamId)
+		.gte("created_at", from)
+		.lte("created_at", nowIso)
+		.order("created_at", { ascending: true })
+		.limit(SERIES_MAX);
+	if (activeKey) seriesQuery = seriesQuery.eq("key_id", activeKey.id);
+	const { data: seriesRows, error } = await seriesQuery;
 
 	if (error) {
 		console.error("usage fetch error:", error);
 	}
 
 	// 2b) Fetch full (unpaged) current + previous for summary metrics
-    let currentQuery = supabase
-        .from("gateway_requests")
-        .select(
-            "request_id,created_at,provider,model_id,key_id,usage,cost_nanos,generation_ms,latency_ms,success,error_code,status_code,currency"
-        )
-        .eq("team_id", teamId)
-        .gte("created_at", from)
-        .lte("created_at", nowIso);
-    if (activeKey) currentQuery = currentQuery.eq("key_id", activeKey.id);
-    const { data: currentRows } = await currentQuery;
+	let currentQuery = supabase
+		.from("gateway_requests")
+		.select(
+			"request_id,created_at,provider,model_id,key_id,usage,cost_nanos,generation_ms,latency_ms,success,error_code,status_code,currency",
+		)
+		.eq("team_id", teamId)
+		.gte("created_at", from)
+		.lte("created_at", nowIso);
+	if (activeKey) currentQuery = currentQuery.eq("key_id", activeKey.id);
+	const { data: currentRows } = await currentQuery;
 
-    let previousQuery = supabase
-        .from("gateway_requests")
-        .select(
-            "request_id,created_at,provider,model_id,key_id,usage,cost_nanos,generation_ms,latency_ms,success,error_code,status_code,currency"
-        )
-        .eq("team_id", teamId)
-        .gte("created_at", prevFrom)
-        .lt("created_at", from);
-    if (activeKey) previousQuery = previousQuery.eq("key_id", activeKey.id);
-    const { data: previousRows } = await previousQuery;
+	let previousQuery = supabase
+		.from("gateway_requests")
+		.select(
+			"request_id,created_at,provider,model_id,key_id,usage,cost_nanos,generation_ms,latency_ms,success,error_code,status_code,currency",
+		)
+		.eq("team_id", teamId)
+		.gte("created_at", prevFrom)
+		.lt("created_at", from);
+	if (activeKey) previousQuery = previousQuery.eq("key_id", activeKey.id);
+	const { data: previousRows } = await previousQuery;
 
 	// helpers
 	const getTokens = (usage: any) => {
@@ -202,7 +276,10 @@ export default async function Page({
 		// Fallback for older rows that might not have total_tokens populated.
 		const sumAllTokenCounters = (value: any): number => {
 			if (Array.isArray(value)) {
-				return value.reduce((sum, item) => sum + sumAllTokenCounters(item), 0);
+				return value.reduce(
+					(sum, item) => sum + sumAllTokenCounters(item),
+					0,
+				);
 			}
 			if (!value || typeof value !== "object") return 0;
 			return Object.entries(value)
@@ -210,7 +287,7 @@ export default async function Page({
 					([key]) =>
 						typeof key === "string" &&
 						key.toLowerCase().includes("token") &&
-						key.toLowerCase() !== "total_tokens"
+						key.toLowerCase() !== "total_tokens",
 				)
 				.reduce((sum, [, v]) => {
 					const n = Number(v);
@@ -218,10 +295,12 @@ export default async function Page({
 				}, 0);
 		};
 
-		const input =
-			safeNumber(usage?.input_text_tokens ?? usage?.input_tokens ?? 0);
-		const output =
-			safeNumber(usage?.output_text_tokens ?? usage?.output_tokens ?? 0);
+		const input = safeNumber(
+			usage?.input_text_tokens ?? usage?.input_tokens ?? 0,
+		);
+		const output = safeNumber(
+			usage?.output_text_tokens ?? usage?.output_tokens ?? 0,
+		);
 		const total =
 			totalFromField > 0 ? totalFromField : sumAllTokenCounters(usage);
 
@@ -292,51 +371,14 @@ export default async function Page({
 		}
 	})();
 
-	// Top models and API keys by spend
-	type AggValue = {
-		spendUsd: number;
-		requests: number;
-		tokens: number;
-		latencies: number[];
-	};
-	const makeAggValue = (): AggValue => ({
-		spendUsd: 0,
-		requests: 0,
-		tokens: 0,
-		latencies: [],
-	});
-	const ensureEntry = (map: Map<string, AggValue>, key: string) => {
-		const node = map.get(key);
-		if (node) return node;
-		const next = makeAggValue();
-		map.set(key, next);
-		return next;
-	};
-	const modelAgg = new Map<string, AggValue>();
-	const keyAgg = new Map<string, AggValue>();
-	(currentRows ?? []).forEach((r) => {
-		const spend = Number(r.cost_nanos ?? 0) / 1e9;
-		const tokens = getTokens(r.usage).total;
-		const latencyValue = Number(r.generation_ms ?? r.latency_ms ?? NaN);
-		const latency = Number.isFinite(latencyValue) ? latencyValue : null;
 
-		const modelEntry = ensureEntry(modelAgg, r.model_id ?? "unknown");
-		modelEntry.spendUsd += spend;
-		modelEntry.requests += 1;
-		modelEntry.tokens += tokens;
-		if (latency != null) modelEntry.latencies.push(latency);
-
-		const keyEntry = ensureEntry(keyAgg, (r as any)?.key_id ?? UNKNOWN_KEY_ID);
-		keyEntry.spendUsd += spend;
-		keyEntry.requests += 1;
-		keyEntry.tokens += tokens;
-		if (latency != null) keyEntry.latencies.push(latency);
-	});
 
 	const keyMetaMap = new Map(availableKeys.map((key) => [key.id, key]));
 	const truncateId = (value: string) =>
 		value.length > 12 ? `${value.slice(0, 8)}...${value.slice(-4)}` : value;
-	const describeKey = (keyId: string): { label: string; subtitle: string | null } => {
+	const describeKey = (
+		keyId: string,
+	): { label: string; subtitle: string | null } => {
 		if (keyId === UNKNOWN_KEY_ID) {
 			return {
 				label: "Unknown key",
@@ -358,39 +400,7 @@ export default async function Page({
 		return { label: truncateId(keyId), subtitle: null };
 	};
 
-	const topModels: BreakdownRow[] = Array.from(modelAgg.entries())
-		.map(([model, v]) => ({
-			id: model,
-			label: model,
-			subtitle: null,
-			spendUsd: v.spendUsd,
-			requests: v.requests,
-			tokens: v.tokens,
-			avgLatencyMs: v.latencies.length
-				? v.latencies.reduce((s, x) => s + x, 0) / v.latencies.length
-				: null,
-		}))
-		.sort((a, b) => b.spendUsd - a.spendUsd)
-		.slice(0, 6);
-	const topKeys: BreakdownRow[] = Array.from(keyAgg.entries())
-		.map(([keyId, v]) => {
-			const { label, subtitle } = describeKey(keyId);
-			return {
-				id: keyId,
-				label,
-				subtitle,
-				spendUsd: v.spendUsd,
-				requests: v.requests,
-				tokens: v.tokens,
-				avgLatencyMs: v.latencies.length
-					? v.latencies.reduce((s, x) => s + x, 0) / v.latencies.length
-					: null,
-			};
-		})
-		.sort((a, b) => b.spendUsd - a.spendUsd)
-		.slice(0, 6);
-	const breakdownRows = groupBy === "key" ? topKeys : topModels;
-	const breakdownVariant = groupBy === "key" ? "key" : "model";
+
 
 	// Errors (filter to user-attributed only)
 	const isUserAttributed = (row: any) => {
@@ -407,7 +417,7 @@ export default async function Page({
 		return !row?.success;
 	};
 	const errsAll = (currentRows ?? []).filter(
-		(r) => !r.success || Number(r.status_code ?? 0) >= 400
+		(r) => !r.success || Number(r.status_code ?? 0) >= 400,
 	);
 	const errs = errsAll.filter(isUserAttributed);
 	const totalErrors = errs.length;
@@ -425,7 +435,7 @@ export default async function Page({
 		.sort(
 			(a, b) =>
 				new Date(b.created_at).getTime() -
-				new Date(a.created_at).getTime()
+				new Date(a.created_at).getTime(),
 		)
 		.slice(0, 5);
 	const recentRequests = (currentRows ?? [])
@@ -434,139 +444,80 @@ export default async function Page({
 		.sort(
 			(a, b) =>
 				new Date(b.created_at).getTime() -
-				new Date(a.created_at).getTime()
+				new Date(a.created_at).getTime(),
 		)
 		.slice(0, 5);
 
 	return (
 		<main className="flex min-h-screen flex-col">
-            <div className="container mx-auto px-4 py-8">
-				<UsageHeader keys={availableKeys} />
-
-                {activeKey ? (
-                    <div className="mb-4 text-sm text-muted-foreground">
-                        Showing usage for key
-                        {" "}
-                        <span className="font-mono">{activeKey.prefix ?? ""}</span>
-                        {activeKey.name ? (
-                            <>
-                                {" "}(<span className="font-medium">{activeKey.name}</span>)
-                            </>
-                        ) : null}
-                        . {" "}
-                        <a className="underline" href="/gateway/usage">Clear filter</a>
-                    </div>
-                ) : (
-                    <DeprecationWarnings />
-                )}
-
-				<UsageStatCards
-					periodLabel={periodLabel}
-					cards={[
-						{
-							icon: "spend",
-							title: "Spend",
-							value: spendNow,
-							format: {
-								style: "currency",
-								currency: "USD",
-								currencyDisplay: "narrowSymbol",
-								minimumFractionDigits: 5,
-								maximumFractionDigits: 5,
-							},
-							delta: {
-								percent: delta(spendNow, spendPrev),
-								// abs: spendNow - spendPrev, // <<— absolute change
-							},
-						},
-						{
-							icon: "requests",
-							title: "Requests",
-							value: reqNow,
-							delta: {
-								percent: delta(reqNow, reqPrev),
-								// abs: reqNow - reqPrev,
-							},
-						},
-						{
-							icon: "tokens",
-							title: "Tokens",
-							value: tokensNow,
-							delta: {
-								percent: delta(tokensNow, tokensPrev),
-								// abs: tokensNow - tokensPrev,
-							},
-						},
-					]}
+			<div className="container mx-auto px-4 py-8">
+				<UsageHeader
+					keys={availableKeys}
+					lifecycleAlerts={{
+						count: lifecycleAlertCount,
+						anchorId: "lifecycle-alerts",
+					}}
 				/>
 
-				{/* Recent lists */}
-				<div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
-					<RecentRequestsPanel rows={recentRequests} />
-					<Card className="hidden">
-						<CardHeader>
-							<CardTitle>Recent Requests</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<ul className="space-y-2">
-								{recentRequests.map((r, idx) => (
-									<li
-										key={idx}
-										className="flex items-center justify-between text-sm"
-									>
-										<div className="min-w-0">
-											<div className="font-medium truncate">
-												{r.provider ?? "-"} ·{" "}
-												{r.model_id ?? "-"}
-											</div>
-											<div className="text-xs text-muted-foreground">
-												{new Date(
-													r.created_at
-												).toLocaleString()}
-											</div>
-										</div>
-										<div className="ml-2 shrink-0 text-right text-xs text-muted-foreground">
-											$
-											{(
-												Number(r.cost_nanos ?? 0) / 1e9
-											).toFixed(5)}
-										</div>
-									</li>
-								))}
-							</ul>
-						</CardContent>
-					</Card>
-					<ErrorsPanel
-						totalErrors={totalErrors}
-						totalRequests={reqNow}
-						topCodes={topCodes}
-						recent={recentErrors}
-					/>
-				</div>
+				{activeKey ? (
+					<div className="mb-6 text-sm text-muted-foreground">
+						Showing usage for key{" "}
+						<span className="font-mono">
+							{activeKey.prefix ?? ""}
+						</span>
+						{activeKey.name ? (
+							<>
+								{" "}
+								(
+								<span className="font-medium">
+									{activeKey.name}
+								</span>
+								)
+							</>
+						) : null}
+						.{" "}
+						<a className="underline" href="/gateway/usage">
+							Clear filter
+						</a>
+					</div>
+				) : null}
 
-				{/* Overview chart */}
-				<div className="mt-8">
-					<UsageOverviewChart
-						range={range}
-						rows={(seriesRows ?? []).map((r) => ({
-							created_at: r.created_at,
-							usage: r.usage,
-							cost_nanos: r.cost_nanos,
-							model_id: r.model_id,
-							key_id: (r as any)?.key_id ?? null,
-						}))}
-						windowLabel={periodLabel}
-						groupMode={groupBy === "key" && !activeKey ? "key" : "model"}
-						keyMeta={availableKeys}
-					/>
-				</div>
+				{/* Integrated Metrics & Charts */}
+				<MetricsOverview
+					timeRange={{ from, to: nowIso }}
+					range={range}
+					colorMap={Object.fromEntries(colorMap)}
+				/>
 
-				<div className="mt-8">
-					<TopModels
-						rows={breakdownRows}
-						variant={breakdownVariant}
+				{/* All Requests Section */}
+				<div className="mt-8 space-y-4">
+					<div className="flex items-center justify-between">
+						<h2 className="text-2xl font-semibold">All Requests</h2>
+						<p className="text-sm text-muted-foreground">
+							{periodLabel}
+						</p>
+					</div>
+					<RequestsSection
+						timeRange={{ from, to: nowIso }}
+						appNames={appNames}
+						models={uniqueModels}
+						providers={uniqueProviders}
+						modelProviders={modelProviders}
+						providerNames={providerNames}
+						apiKeys={availableKeys}
+						modelMetadata={modelMetadata}
 					/>
 				</div>
+				{lifecycleAlertCount > 0 ? (
+					<div className="mt-10">
+						<DeprecationWarnings
+							id="lifecycle-alerts"
+							warnings={lifecycleWarnings}
+						/>
+					</div>
+				) : null}
+
+
 			</div>
 		</main>
 	);

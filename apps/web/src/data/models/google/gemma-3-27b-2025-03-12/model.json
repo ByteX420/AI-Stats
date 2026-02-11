@@ -3,7 +3,7 @@
   "organisation_id": "google",
   "name": "Gemma 3 27B",
   "status": "Available",
-  "previous_model_id": null,
+  "previous_model_id": "google/gemma-2-27b-2024-06-27",
   "announced_date": "2025-03-12T00:00:00",
   "release_date": "2025-03-12T00:00:00",
   "deprecation_date": null,
@@ -55,7 +55,7 @@
       "is_self_reported": false,
       "other_info": null,
       "source_link": "https://github.com/lechmazur/confabulations",
-      "rank": 43
+      "rank": 40
     },
     {
       "benchmark_id": "eqbench",
@@ -63,7 +63,7 @@
       "is_self_reported": false,
       "other_info": null,
       "source_link": "https://eqbench.com",
-      "rank": 23
+      "rank": 21
     },
     {
       "benchmark_id": "gpqa-diamond",
@@ -71,7 +71,7 @@
       "is_self_reported": true,
       "other_info": null,
       "source_link": "https://ai.google.dev/gemma/docs/core/model_card_3",
-      "rank": 72
+      "rank": 63
     },
     {
       "benchmark_id": "lmarena-text",
@@ -87,7 +87,7 @@
       "is_self_reported": false,
       "other_info": null,
       "source_link": "https://github.com/lechmazur/nyt-connections",
-      "rank": 31
+      "rank": 30
     },
     {
       "benchmark_id": "thematic-generalisation",
@@ -95,7 +95,7 @@
       "is_self_reported": false,
       "other_info": null,
       "source_link": "https://github.com/lechmazur/generalization",
-      "rank": 22
+      "rank": 20
     }
   ]
 }

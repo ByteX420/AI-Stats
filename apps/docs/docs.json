@@ -25,42 +25,106 @@
 						"icon": "book",
 						"groups": [
 							{
-								"group": "Introduction",
-								"pages": ["v1/index", "v1/quickstart"]
+								"group": "Start here",
+								"pages": [
+									"v1/index",
+									"v1/quickstart",
+									"v1/guides/principles"
+								]
 							},
 							{
-								"group": "Contributing to AI Stats",
-								"pages": [
-									"v1/contributing/overview",
-									"v1/contributing/how-to-contribute",
-									"v1/contributing/repo-structure"
-								]
-							}
-						]
-					},
-					{
-						"tab": "Developers",
-						"icon": "code",
-						"groups": [
-							{
-								"group": "Getting Started with the Gateway",
+								"group": "Gateway basics",
 								"pages": [
 									"v1/developers/introduction",
 									"v1/developers/integrating-with-the-gateway",
-									"v1/developers/authentication"
-								]
-							},
-							{
-								"group": "Advanced Usage",
-								"pages": [
-									"v1/developers/best-practices",
+									"v1/developers/authentication",
+									"v1/developers/management-api-keys",
+									"v1/developers/rate-limits",
 									"v1/developers/error-handling",
-									"v1/developers/rate-limits"
+									"v1/developers/best-practices"
 								]
 							},
 							{
-								"group": "Research & Methodology",
-								"pages": ["v1/research/citation"]
+								"group": "Pricing",
+								"pages": [
+									"v1/pricing/tiers"
+								]
+							},
+							{
+								"group": "Routing and capabilities",
+								"pages": [
+									"v1/guides/routing-and-fallbacks",
+									"v1/guides/multimodality"
+								]
+							},
+							{
+								"group": "Features",
+								"pages": [
+									"v1/guides/tool-calling",
+									"v1/guides/structured-outputs",
+									"v1/guides/presets",
+									"v1/guides/app-attribution"
+								]
+							},
+							{
+								"group": "Integrations",
+								"pages": [
+									{
+										"group": "Integrations",
+										"pages": [
+											"v1/guides/integrations/index",
+											"v1/guides/integrations/ai-sdk",
+											"v1/guides/integrations/claude-code",
+											"v1/guides/integrations/codex",
+											"v1/guides/integrations/opencode",
+											"v1/guides/examples"
+										]
+									}
+								]
+							},
+							{
+								"group": "Gateway architecture",
+								"pages": [
+									"v1/developers/gateway-architecture/overview",
+									"v1/developers/gateway-architecture/ir-and-protocols",
+									"v1/developers/gateway-architecture/routes",
+									"v1/developers/gateway-architecture/providers",
+									"v1/developers/gateway-architecture/id-handling",
+									"v1/developers/gateway-architecture/observability"
+								]
+							},
+							{
+								"group": "Data and research",
+								"pages": [
+									"v1/exploring/overview",
+									"v1/exploring/models",
+									"v1/exploring/organisations",
+									"v1/exploring/api-providers",
+									"v1/exploring/benchmarks",
+									"v1/exploring/pricing-performance",
+									"v1/exploring/subscription-plans",
+									"v1/research/benchmark-methodology",
+									"v1/research/citation",
+									"v1/research/submitting-scores"
+								]
+							},
+							{
+								"group": "Contributing",
+								"pages": [
+									"v1/contributing/overview",
+									"v1/contributing/how-to-contribute",
+									"v1/contributing/repo-structure",
+									"v1/contributing/editing-a-model",
+									"v1/contributing/editing-an-organisation",
+									"v1/community/code-of-conduct"
+								]
+							},
+							{
+								"group": "Support",
+								"pages": [
+									"v1/community/faq",
+									"v1/community/contact-and-support"
+								]
 							}
 						]
 					},
@@ -69,7 +133,8 @@
 						"icon": "server",
 						"groups": [
 							{
-								"group": "Overview",
+								"group": "Introduction",
+								"expanded": false,
 								"pages": [
 									"v1/api-reference/introduction",
 									"v1/api-reference/authentication",
@@ -77,83 +142,138 @@
 								]
 							},
 							{
-								"group": "Responses",
-								"pages": ["v1/api-reference/endpoint/responses"]
-							},
-							{
-								"group": "Completions",
+								"group": "Generation APIs",
+								"icon": "sparkles",
+								"expanded": false,
 								"pages": [
-									"v1/api-reference/endpoint/chat-completions"
+									{
+										"group": "Text Generation",
+										"expanded": false,
+										"pages": [
+											"v1/api-reference/endpoint/responses",
+											"v1/api-reference/endpoint/chat-completions",
+											"v1/api-reference/endpoint/anthropic-messages"
+										]
+									},
+									{
+										"group": "Images",
+										"expanded": false,
+										"pages": [
+											"v1/api-reference/endpoint/images-generations",
+											"v1/api-reference/endpoint/images-edits"
+										]
+									},
+									{
+										"group": "Audio",
+										"expanded": false,
+										"pages": [
+											"v1/api-reference/endpoint/audio-speech",
+											"v1/api-reference/endpoint/audio-transcriptions",
+											"v1/api-reference/endpoint/audio-translations"
+										]
+									},
+									{
+										"group": "Embeddings",
+										"expanded": false,
+										"pages": [
+											"v1/api-reference/endpoint/embeddings"
+										]
+									},
+									{
+										"group": "Moderations",
+										"expanded": false,
+										"pages": [
+											"v1/api-reference/endpoint/moderations"
+										]
+									},
+									{
+										"group": "Video",
+										"expanded": false,
+										"pages": [
+											"v1/api-reference/endpoint/video-generation",
+											"v1/api-reference/endpoint/video-status",
+											"v1/api-reference/endpoint/video-content",
+											"v1/api-reference/endpoint/video-delete"
+										]
+									},
+									{
+										"group": "Music",
+										"expanded": false,
+										"pages": [
+											"v1/api-reference/endpoint/music-generate"
+										]
+									},
+									{
+										"group": "Batches and Files",
+										"expanded": false,
+										"pages": [
+											"v1/api-reference/endpoint/batches",
+											"v1/api-reference/endpoint/files"
+										]
+									}
 								]
 							},
 							{
-								"group": "Images",
+								"group": "Admin APIs",
+								"icon": "settings",
+								"expanded": false,
 								"pages": [
-									"v1/api-reference/endpoint/images-generations",
-									"v1/api-reference/endpoint/images-edits"
+									{
+										"group": "Analytics and Health",
+										"expanded": false,
+										"pages": [
+											"v1/api-reference/endpoint/activity",
+											"v1/api-reference/endpoint/health"
+										]
+									},
+									{
+										"group": "Credits",
+										"expanded": false,
+										"pages": [
+											"v1/api-reference/endpoint/credits"
+										]
+									},
+									{
+										"group": "Keys",
+										"expanded": false,
+										"pages": [
+											"v1/api-reference/endpoint/management/index",
+											"v1/api-reference/endpoint/management/keys-list",
+											"v1/api-reference/endpoint/management/keys-create",
+											"v1/api-reference/endpoint/management/keys-get",
+											"v1/api-reference/endpoint/management/keys-update",
+											"v1/api-reference/endpoint/management/keys-delete"
+										]
+									},
+									{
+										"group": "Generations",
+										"expanded": false,
+										"pages": [
+											"v1/api-reference/endpoint/generation"
+										]
+									}
 								]
 							},
 							{
-								"group": "Audio",
+								"group": "Data APIs",
+								"icon": "database",
+								"expanded": false,
 								"pages": [
-									"v1/api-reference/endpoint/audio-speech",
-									"v1/api-reference/endpoint/audio-transcriptions",
-									"v1/api-reference/endpoint/audio-translations"
+									{
+										"group": "Models",
+										"expanded": false,
+										"pages": [
+											"v1/api-reference/endpoint/models"
+										]
+									},
+									{
+										"group": "Providers",
+										"expanded": false,
+										"pages": [
+											"v1/api-reference/endpoint/providers"
+										]
+									}
 								]
-							},
-							{
-								"group": "Video",
-								"pages": [
-									"v1/api-reference/endpoint/video-generation"
-								]
-							},
-							{
-								"group": "Embeddings",
-								"pages": [
-									"v1/api-reference/endpoint/embeddings"
-								]
-							},
-							{
-								"group": "Moderations",
-								"pages": [
-									"v1/api-reference/endpoint/moderations"
-								]
-							},
-							{
-								"group": "Batches & Files",
-								"pages": [
-									"v1/api-reference/endpoint/batches",
-									"v1/api-reference/endpoint/files"
-								]
-							},
-							{
-								"group": "Models",
-								"pages": ["v1/api-reference/endpoint/models"]
-							},
-							{
-								"group": "Analytics",
-								"pages": [
-									"v1/api-reference/endpoint/analytics",
-									"v1/api-reference/endpoint/health"
-								]
-							},
-							{
-								"group": "Credits",
-								"pages": []
-							},
-							{
-								"group": "Generations",
-								"pages": [
-									"v1/api-reference/endpoint/generation"
-								]
-							},
-							{
-								"group": "Providers",
-								"pages": []
-							},
-							{
-								"group": "API Keys",
-								"pages": []
 							}
 						]
 					},
@@ -161,6 +281,15 @@
 						"tab": "SDK Reference (Alpha)",
 						"icon": "package",
 						"menu": [
+							{
+								"item": "AI SDK (Vercel)",
+								"groups": [
+									{
+										"group": "Overview",
+										"pages": ["v1/sdk-reference/sdk/ai-sdk"]
+									}
+								]
+							},
 							{
 								"item": "TypeScript SDK",
 								"groups": [
@@ -502,6 +631,42 @@
 										]
 									}
 								]
+							},
+							{
+								"item": "Java SDK",
+								"groups": [
+									{
+										"group": "Introduction",
+										"pages": [
+											"v1/sdk-reference/java/overview",
+											"v1/sdk-reference/java/installation"
+										]
+									}
+								]
+							},
+							{
+								"item": "Rust SDK",
+								"groups": [
+									{
+										"group": "Introduction",
+										"pages": [
+											"v1/sdk-reference/rust/overview",
+											"v1/sdk-reference/rust/installation"
+										]
+									}
+								]
+							},
+							{
+								"item": "C++ SDK",
+								"groups": [
+									{
+										"group": "Introduction",
+										"pages": [
+											"v1/sdk-reference/cpp/overview",
+											"v1/sdk-reference/cpp/installation"
+										]
+									}
+								]
 							}
 						]
 					},
@@ -511,7 +676,7 @@
 						"groups": [
 							{
 								"group": "Latest updates",
-								"pages": ["v1/changelog"]
+								"pages": ["v1/changelog", "v1/data-changelog"]
 							}
 						]
 					}
@@ -542,7 +707,7 @@
 		"links": [
 			{
 				"label": "Support",
-				"href": "mailto:daniel@phaseo.app"
+				"href": "https://github.com/AI-Stats/AI-Stats/issues"
 			}
 		],
 		"primary": {
@@ -550,6 +715,12 @@
 			"label": "Dashboard",
 			"href": "https://ai-stats.phaseo.app"
 		}
+	},
+	"metadata": {
+		"timestamp": true
+	},
+	"interaction": {
+		"drilldown": false
 	},
 	"contextual": {
 		"options": [

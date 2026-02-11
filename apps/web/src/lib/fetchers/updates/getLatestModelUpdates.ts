@@ -1,6 +1,7 @@
 // lib/fetchers/updates/getLatestModelUpdate.ts
 import { cacheLife, cacheTag } from "next/cache";
 import { createClient } from "@/utils/supabase/client";
+import { applyHiddenFilter } from "@/lib/fetchers/models/visibility";
 
 import type React from "react";
 import { Megaphone, Rocket, Ban, Archive } from "lucide-react";
@@ -106,8 +107,8 @@ function toIsoOrNull(v: string | null | undefined): string | null {
     return Number.isNaN(ms) ? null : new Date(ms).toISOString();
 }
 
-function relTime(iso: string, now = new Date()) {
-    const diffMs = +now - Date.parse(iso);
+function relTime(iso: string, nowMs: number) {
+    const diffMs = nowMs - Date.parse(iso);
     const sec = Math.round(diffMs / 1000);
     const abs = Math.abs(sec);
     const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -128,12 +129,13 @@ function relTime(iso: string, now = new Date()) {
 // --------------------------------------
 // Build serialisable events from DB rows
 // --------------------------------------
-async function fetchAllModelRows(): Promise<ModelRow[]> {
+async function fetchAllModelRows(includeHidden: boolean): Promise<ModelRow[]> {
     const supabase = await createClient();
 
-    const { data, error } = await supabase
-        .from("data_models")
-        .select(`
+    const { data, error } = await applyHiddenFilter(
+        supabase
+            .from("data_models")
+            .select(`
       model_id,
       name,
       organisation_id,
@@ -143,9 +145,11 @@ async function fetchAllModelRows(): Promise<ModelRow[]> {
       retirement_date,
       organisation:data_organisations!data_models_organisation_id_fkey(organisation_id,name)
     `)
-        .or(
-            "announcement_date.not.is.null,release_date.not.is.null,deprecation_date.not.is.null,retirement_date.not.is.null"
-        );
+            .or(
+                "announcement_date.not.is.null,release_date.not.is.null,deprecation_date.not.is.null,retirement_date.not.is.null"
+            ),
+        includeHidden
+    );
 
     if (error) {
         console.error("[model-updates] Supabase query failed:", error);
@@ -154,7 +158,7 @@ async function fetchAllModelRows(): Promise<ModelRow[]> {
     return (data ?? []) as unknown as ModelRow[];
 }
 
-function buildSerialisedEvents(rows: ModelRow[], now = new Date()): SerialisedModelEvent[] {
+function buildSerialisedEvents(rows: ModelRow[], now: Date): SerialisedModelEvent[] {
     const byKey = new Map<string, SerialisedModelEvent>();
     const nowMs = +now;
 
@@ -213,22 +217,33 @@ function buildSerialisedEvents(rows: ModelRow[], now = new Date()): SerialisedMo
 // --------------------------------------
 const CACHE_LIMIT = 64;
 
-async function getSerialisedModelEventsCached(): Promise<SerialisedModelEvent[]> {
+async function getSerialisedModelEventsCached(
+    includeHidden: boolean
+): Promise<{ events: SerialisedModelEvent[]; generatedAt: string }> {
     "use cache";
 
     cacheLife("days");
     cacheTag("data:model-updates");
 
-    const rows = await fetchAllModelRows();
-    const events = buildSerialisedEvents(rows);
-    return events.slice(0, CACHE_LIMIT);
+    const now = new Date();
+    const rows = await fetchAllModelRows(includeHidden);
+    const events = buildSerialisedEvents(rows, now);
+    return {
+        events: events.slice(0, CACHE_LIMIT),
+        generatedAt: now.toISOString(),
+    };
 }
 
 // --------------------------------------
 // Public: ready-to-render UpdateCard props
 // --------------------------------------
-export async function getLatestModelUpdateCards(limit = 5): Promise<UpdateCardProps[]> {
-    const events = await getSerialisedModelEventsCached();
+export async function getLatestModelUpdateCards(
+    limit = 5,
+    includeHidden: boolean
+): Promise<UpdateCardProps[]> {
+    const { events, generatedAt } = await getSerialisedModelEventsCached(includeHidden);
+    const nowMs = Date.parse(generatedAt);
+
     return events.slice(0, limit).map((e) => {
         // Badges for each event type on this date/model
         const badges = e.types.map((t) => {
@@ -261,7 +276,7 @@ export async function getLatestModelUpdateCards(limit = 5): Promise<UpdateCardPr
                 cta: "View",
             },
             dateIso: e.date,
-            relative: relTime(e.date),
+            relative: relTime(e.date, nowMs),
             accentClass,
         };
     });

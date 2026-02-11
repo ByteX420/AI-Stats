@@ -17,7 +17,8 @@ export async function generateMetadata({
 }): Promise<Metadata> {
 	const { iso } = await params;
 	const isoNormalized = normaliseIso(iso);
-	const country = await getCountrySummaryByIso(isoNormalized);
+	const includeHidden = false;
+	const country = await getCountrySummaryByIso(isoNormalized, includeHidden);
 	const path = `/countries/${isoNormalized.toLowerCase()}/models`;
 	const imagePath = `/og/countries/${isoNormalized.toLowerCase()}`;
 
@@ -48,7 +49,8 @@ export default async function CountryModelsPage({
 }) {
 	const { iso } = await params;
 	const isoNormalized = normaliseIso(iso);
-	const country = await getCountrySummaryByIso(isoNormalized);
+	const includeHidden = false;
+	const country = await getCountrySummaryByIso(isoNormalized, includeHidden);
 
 	if (!country) {
 		return (

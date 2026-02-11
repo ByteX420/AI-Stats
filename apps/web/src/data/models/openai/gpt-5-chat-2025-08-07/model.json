@@ -3,7 +3,7 @@
   "organisation_id": "openai",
   "name": "GPT 5 Chat",
   "status": "Available",
-  "previous_model_id": null,
+  "previous_model_id": "openai/chatgpt-4o-2024-05-13",
   "announced_date": "2025-08-07T00:00:00",
   "release_date": "2025-08-07T00:00:00",
   "deprecation_date": null,
@@ -51,7 +51,7 @@
       "is_self_reported": false,
       "other_info": null,
       "source_link": "https://eqbench.com/",
-      "rank": 4
+      "rank": 3
     }
   ]
 }

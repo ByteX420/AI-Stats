@@ -32,8 +32,8 @@ jobs:
             - name: Setup pnpm
               uses: pnpm/action-setup@v4
               with:
-                  package_json_file: package.json
-
+                  version: 10.15.1
+                  run_install: false
             - name: Setup Node 20
               uses: actions/setup-node@v4
               with:
@@ -48,4 +48,5 @@ jobs:
               env:
                   WEB_WATCHER_PER_SITEMAP_LIMIT: ${{ matrix.watcher == 'web' && secrets.WEB_WATCHER_PER_SITEMAP_LIMIT || '' }}
                   YT_API_KEY: ${{ matrix.watcher == 'youtube' && secrets.YT_API_KEY || '' }}
-              run: pnpm --filter @ai-stats/web exec tsx ${{ matrix.script }}
+              run: cd apps/web && pnpm exec tsx ${{ matrix.script }}
+

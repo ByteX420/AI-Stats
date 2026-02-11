@@ -1,6 +1,6 @@
-﻿"use client";
+"use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
 	CommandDialog,
@@ -10,46 +10,25 @@ import {
 	CommandItem,
 	CommandList,
 	CommandSeparator,
-	CommandShortcut,
 } from "@/components/ui/command";
 import { DialogTitle } from "@/components/ui/dialog";
-import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { cn } from "@/lib/utils";
-import {
-	Loader2,
-	Search as SearchIcon,
-	Sparkles,
-	ArrowUpRight,
-} from "lucide-react";
-import type {
-	Props,
-	ResultGroup,
-	ApiSearchResponse,
-	SearchResultItem,
-} from "./Search.types";
-import {
-	MIN_SEARCH_CHARS,
-	FETCH_DEBOUNCE_MS,
-	curatedGroups,
-} from "./Search.constants";
-import { SearchItem } from "./SearchItem";
+import { Search as SearchIcon, Sparkles } from "lucide-react";
+import { curatedGroups } from "./Search.constants";
+import { SearchRowItem } from "./SearchRowItem";
+import type { SearchData } from "@/lib/fetchers/search/getSearchData";
 
-export default function Search({ className }: Props) {
+interface Props {
+	className?: string;
+	initialData: SearchData;
+}
+
+export default function Search({ className, initialData }: Props) {
 	const router = useRouter();
 
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
-	const [results, setResults] = useState<ResultGroup[]>([]);
-	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-	const [shortcutKeys, setShortcutKeys] = useState<string[]>(["Ctrl", "K"]);
-
-	useEffect(() => {
-		const isApple =
-			typeof navigator !== "undefined" &&
-			/(Mac|iPhone|iPod|iPad)/i.test(navigator.platform);
-		setShortcutKeys(isApple ? ["Cmd", "K"] : ["Ctrl", "K"]);
-	}, []);
+	const listRef = React.useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		function onKeyDown(event: KeyboardEvent) {
@@ -65,219 +44,224 @@ export default function Search({ className }: Props) {
 		return () => window.removeEventListener("keydown", onKeyDown);
 	}, []);
 
+	// Scroll to top when search query changes
 	useEffect(() => {
-		if (!open) {
+		if (listRef.current) {
+			listRef.current.scrollTop = 0;
+		}
+	}, [query]);
+
+	// Reset query when dialog closes
+	const handleOpenChange = (newOpen: boolean) => {
+		setOpen(newOpen);
+		if (!newOpen) {
 			setQuery("");
-			setResults([]);
-			setLoading(false);
-			setError(null);
 		}
-	}, [open]);
-
-	useEffect(() => {
-		const trimmed = query.trim();
-		if (!open || trimmed.length < MIN_SEARCH_CHARS) {
-			setLoading(false);
-			setError(null);
-			setResults([]);
-			return;
-		}
-
-		const controller = new AbortController();
-		let cancelled = false;
-
-		setLoading(true);
-		setError(null);
-
-		const timeoutId = window.setTimeout(async () => {
-			try {
-				const response = await fetch(
-					`/api/search?q=${encodeURIComponent(trimmed)}`,
-					{
-						signal: controller.signal,
-					}
-				);
-
-				if (!response.ok) {
-					throw new Error(
-						`Search request failed (${response.status})`
-					);
-				}
-
-				const payload = (await response.json()) as ApiSearchResponse;
-				if (!cancelled) {
-					const mappedGroups = (
-						payload.groups ?? []
-					).map<ResultGroup>((group) => ({
-						type: group.type,
-						label: group.label,
-						items: group.items.map<SearchResultItem>((item) => ({
-							...item,
-							icon: item.icon,
-						})),
-					}));
-					setResults(mappedGroups);
-				}
-			} catch (err) {
-				if (controller.signal.aborted || cancelled) {
-					return;
-				}
-				console.error("[search] request failed", err);
-				setResults([]);
-				setError(
-					"We couldn't reach search just now. Please try again."
-				);
-			} finally {
-				if (!cancelled) {
-					setLoading(false);
-				}
-			}
-		}, FETCH_DEBOUNCE_MS);
-
-		return () => {
-			cancelled = true;
-			controller.abort();
-			window.clearTimeout(timeoutId);
-		};
-	}, [open, query]);
+	};
 
 	const handleSelect = (href: string) => {
 		setOpen(false);
 		router.push(href);
 	};
 
-	const hasQuery = query.trim().length >= MIN_SEARCH_CHARS;
+	const hasQuery = query.trim().length > 0;
+	const searchTerm = query.trim().toLowerCase();
 
-	const groupsToRender: ResultGroup[] = hasQuery
-		? [curatedGroups[0], ...results]
-		: curatedGroups;
+	// Calculate match score for an item (higher = better match)
+	const getMatchScore = (item: { id: string; title: string; searchKeywords: string[] }, term: string): number => {
+		const itemId = item.id.toLowerCase();
+		const itemTitle = item.title.toLowerCase();
+
+		// Exact ID match (score: 1000)
+		if (itemId === term) return 1000;
+
+		// Exact title match (score: 900)
+		if (itemTitle === term) return 900;
+
+		// Title starts with term (score: 800)
+		if (itemTitle.startsWith(term)) return 800;
+
+		// ID starts with term (score: 700)
+		if (itemId.startsWith(term)) return 700;
+
+		// ID contains term (score: 600)
+		if (itemId.includes(term)) return 600;
+
+		// Title contains term (score: 500)
+		if (itemTitle.includes(term)) return 500;
+
+		// Keyword match (score: 400)
+		if (item.searchKeywords.some(k => k.toLowerCase().includes(term))) return 400;
+
+		return 0;
+	};
+
+	// Filter and sort function that prioritizes exact matches
+	const filterAndSort = <T extends { id: string; title: string; searchKeywords: string[] }>(
+		items: T[],
+		term: string
+	): T[] => {
+		if (!term) return [];
+
+		// Filter and score items
+		const scored = items
+			.map(item => ({ item, score: getMatchScore(item, term) }))
+			.filter(({ score }) => score > 0);
+
+		// Sort by score (descending), then alphabetically
+		return scored
+			.sort((a, b) => {
+				if (b.score !== a.score) return b.score - a.score;
+				return a.item.title.localeCompare(b.item.title);
+			})
+			.map(({ item }) => item)
+			.slice(0, 50);
+	};
+
+	// Filter and sort data based on search query
+	const modelsToShow = hasQuery ? filterAndSort(initialData.models, searchTerm) : [];
+	const orgsToShow = hasQuery ? filterAndSort(initialData.organisations, searchTerm) : [];
+	const benchmarksToShow = hasQuery ? filterAndSort(initialData.benchmarks, searchTerm) : [];
+	const providersToShow = hasQuery ? filterAndSort(initialData.apiProviders, searchTerm) : [];
+	const plansToShow = hasQuery ? filterAndSort(initialData.subscriptionPlans, searchTerm) : [];
+	const countriesToShow = hasQuery ? filterAndSort(initialData.countries, searchTerm) : [];
+
+	// Calculate best match score for each category to determine section order
+	const categoryScores = [
+		{ name: 'models', items: modelsToShow, score: modelsToShow.length > 0 ? getMatchScore(modelsToShow[0], searchTerm) : 0 },
+		{ name: 'organisations', items: orgsToShow, score: orgsToShow.length > 0 ? getMatchScore(orgsToShow[0], searchTerm) : 0 },
+		{ name: 'benchmarks', items: benchmarksToShow, score: benchmarksToShow.length > 0 ? getMatchScore(benchmarksToShow[0], searchTerm) : 0 },
+		{ name: 'providers', items: providersToShow, score: providersToShow.length > 0 ? getMatchScore(providersToShow[0], searchTerm) : 0 },
+		{ name: 'plans', items: plansToShow, score: plansToShow.length > 0 ? getMatchScore(plansToShow[0], searchTerm) : 0 },
+		{ name: 'countries', items: countriesToShow, score: countriesToShow.length > 0 ? getMatchScore(countriesToShow[0], searchTerm) : 0 },
+	].sort((a, b) => b.score - a.score); // Sort categories by best match score
 
 	return (
 		<div className={cn("flex items-center gap-2", className)}>
 			<button
 				type="button"
 				onClick={() => setOpen(true)}
-				className={cn(
-					"hidden lg:flex h-9 w-full max-w-3xs items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 text-left text-sm text-zinc-500 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/60 dark:border-zinc-800 dark:bg-zinc-950/60 dark:text-zinc-400 dark:hover:bg-zinc-900"
-				)}
+				className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/60 dark:text-zinc-300 dark:hover:bg-zinc-800"
 				aria-label="Open search"
 			>
-				<SearchIcon className="size-4 shrink-0 text-zinc-500 dark:text-zinc-400" />
-				<span className="flex-1 truncate">
-					Search models, organisations, benchmarks...
-				</span>
-				<KbdGroup>
-					{shortcutKeys.map((key) => (
-						<Kbd key={key}>{key}</Kbd>
-					))}
-				</KbdGroup>
+				<SearchIcon className="size-4" />
 			</button>
 
-			<button
-				type="button"
-				onClick={() => setOpen(true)}
-				className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/60 dark:text-zinc-300 dark:hover:bg-zinc-800 lg:hidden"
-				aria-label="Open search"
-			>
-				<SearchIcon className="size-5" />
-			</button>
-
-			<CommandDialog open={open} onOpenChange={setOpen}>
+			<CommandDialog open={open} onOpenChange={handleOpenChange}>
 				<DialogTitle className="sr-only">Search</DialogTitle>
 				<CommandInput
 					value={query}
 					onValueChange={setQuery}
-					placeholder="Search the database..."
+					placeholder="Search models, organisations, benchmarks..."
 					aria-label="Search catalogue"
 				/>
-				<CommandList className="min-h-[60vh] lg:min-h-[80vh] space-y-6">
-					{!loading && !error
-						? groupsToRender.map((group, index) => (
-								<Fragment key={group.type}>
-									<CommandGroup
-										heading={group.label}
-										className="text-xl font-semibold text-zinc-900 dark:text-zinc-50 space-y-2 pt-6 pb-4"
-									>
-										<div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-											{group.items
-												.slice(0, 9)
-												.map((item) => (
-													<SearchItem
-														key={`${group.type}-${item.id}`}
-														item={item}
-														onSelect={handleSelect}
-													/>
-												))}
-										</div>
-									</CommandGroup>
-									{index < groupsToRender.length - 1 ? (
-										<CommandSeparator />
-									) : null}
-								</Fragment>
-						  ))
-						: null}
-
+				<CommandList ref={listRef} className="max-h-[60vh] lg:max-h-[70vh]">
 					<CommandEmpty className="py-12">
-						{loading ? (
-							<div className="flex flex-col items-center gap-3">
-								<div className="size-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-									<Loader2 className="size-6 animate-spin text-zinc-500" />
-								</div>
-								<div className="text-center">
-									<p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-										Searching...
-									</p>
-									<p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-										Finding the best matches
-									</p>
-								</div>
+						<div className="flex flex-col items-center gap-3">
+							<div className="size-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+								<SearchIcon className="size-6 text-zinc-400" />
 							</div>
-						) : error ? (
-							<div className="flex flex-col items-center gap-3">
-								<div className="size-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
-									<SearchIcon className="size-6 text-red-600 dark:text-red-400" />
-								</div>
-								<div className="text-center">
-									<p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-										Search temporarily unavailable
-									</p>
-									<p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-										{error}
-									</p>
-								</div>
+							<div className="text-center">
+								<p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
+									No results found
+								</p>
+								<p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+									Try different keywords or check your spelling
+								</p>
 							</div>
-						) : hasQuery ? (
-							<div className="flex flex-col items-center gap-3">
-								<div className="size-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-									<SearchIcon className="size-6 text-zinc-400" />
-								</div>
-								<div className="text-center">
-									<p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-										No results found
-									</p>
-									<p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-										Try different keywords or check your
-										spelling
-									</p>
-								</div>
-							</div>
-						) : (
-							<div className="flex flex-col items-center gap-3">
-								<div className="size-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-									<Sparkles className="size-6 text-zinc-400" />
-								</div>
-								<div className="text-center">
-									<p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-										Start typing to search
-									</p>
-									<p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-										Search for models, organisations,
-										benchmarks, and more
-									</p>
-								</div>
-							</div>
-						)}
+						</div>
 					</CommandEmpty>
+
+					{/* Quick Actions - Always visible when no query */}
+					{!hasQuery && curatedGroups[0] && (
+						<>
+							<CommandGroup heading={curatedGroups[0].label}>
+								{curatedGroups[0].items.map((item) => (
+									<CommandItem
+										key={item.id}
+										value={item.href}
+										onSelect={() => handleSelect(item.href)}
+										className="flex items-center gap-3 px-3 py-2.5 cursor-pointer"
+									>
+										<Sparkles className="size-[18px] shrink-0 text-zinc-400" />
+										<span className="text-sm font-medium">{item.title}</span>
+									</CommandItem>
+								))}
+							</CommandGroup>
+							<CommandSeparator />
+						</>
+					)}
+
+					{/* Dynamically ordered search results */}
+					{hasQuery && categoryScores.map((category, index) => {
+						if (category.items.length === 0) return null;
+
+						const categoryConfig = {
+							models: { heading: 'Models', type: undefined },
+							organisations: { heading: 'Organisations', type: undefined },
+							benchmarks: { heading: 'Benchmarks', type: 'benchmark' as const },
+							providers: { heading: 'API Providers', type: undefined },
+							plans: { heading: 'Subscription Plans', type: undefined },
+							countries: { heading: 'Countries', type: undefined },
+						}[category.name];
+
+						if (!categoryConfig) return null;
+
+						const isLast = index === categoryScores.filter(c => c.items.length > 0).length - 1;
+
+						return (
+							<Fragment key={category.name}>
+								<CommandGroup heading={categoryConfig.heading}>
+									{category.items.map((item: any) => (
+										<SearchRowItem
+											key={item.id}
+											{...item}
+											keywords={item.searchKeywords}
+											onSelect={handleSelect}
+											type={categoryConfig.type}
+										/>
+									))}
+								</CommandGroup>
+								{!isLast && <CommandSeparator />}
+							</Fragment>
+						);
+					})}
+
+					{/* Featured items when no query */}
+					{!hasQuery && (
+						<>
+							{curatedGroups.slice(1).map((group) => {
+								// Determine the type for each group
+								const itemType = group.type === 'featured-benchmarks' ? 'benchmark' :
+								                 group.type === 'featured-comparisons' ? 'comparison' :
+								                 'default';
+
+								return (
+									<Fragment key={group.type}>
+										<CommandSeparator />
+										<CommandGroup heading={group.label}>
+											{group.items.map((item) => (
+												<SearchRowItem
+													key={item.id}
+													id={item.id}
+													title={item.title}
+													subtitle={item.subtitle}
+													href={item.href}
+													logoId={item.logoId}
+													flagIso={item.flagIso}
+													leftLogoId={item.leftLogoId}
+													rightLogoId={item.rightLogoId}
+													keywords={[item.title, item.subtitle || ''].filter(Boolean)}
+													onSelect={handleSelect}
+													type={itemType}
+												/>
+											))}
+										</CommandGroup>
+									</Fragment>
+								);
+							})}
+						</>
+					)}
 				</CommandList>
 			</CommandDialog>
 		</div>

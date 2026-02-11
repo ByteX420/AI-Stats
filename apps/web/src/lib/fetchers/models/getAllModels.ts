@@ -1,6 +1,7 @@
 // lib/fetchers/models/getAllModels.ts
 import { cacheLife, cacheTag } from "next/cache";
 import { createClient } from "@/utils/supabase/client";
+import { applyHiddenFilter } from "./visibility";
 
 export interface ModelCard {
     model_id: string;
@@ -8,6 +9,8 @@ export interface ModelCard {
     organisation_id: string;
     organisation_name: string | null;
     organisation_colour: string | null;
+    status?: string | null;
+    hidden?: boolean;
     release_date?: string | null;
     announcement_date?: string | null;
     primary_date: string | null;
@@ -64,6 +67,8 @@ export function mapRawToModelCard(
         organisation_name: raw.organisation?.name ?? null,
         organisation_colour:
             raw.organisation?.colour ?? raw.organisation?.color ?? null,
+        status: raw.status ?? null,
+        hidden: Boolean(raw.hidden),
         release_date: raw.release_date ?? null,
         announcement_date: raw.announcement_date ?? null,
         primary_date: null,
@@ -80,17 +85,21 @@ export function mapRawToModelCard(
 
 type GetModelsFilter = {
     search?: string;
+    includeHidden?: boolean;
 };
 
 async function fetchModelsFromDb(filters: GetModelsFilter): Promise<any[]> {
     const supabase = await createClient();
+    const includeHidden = Boolean(filters.includeHidden);
 
     const search = filters.search?.trim() ?? "";
 
     const baseSelect = `
             model_id,
             name,
+            status,
             organisation_id,
+            hidden,
             release_date,
             announcement_date,
             organisation: data_organisations (name, colour)
@@ -98,10 +107,11 @@ async function fetchModelsFromDb(filters: GetModelsFilter): Promise<any[]> {
 
     // No search filter: simple ordered query
     if (!search) {
-        const { data, error } = await supabase
-            .from("data_models")
-            .select(baseSelect)
-            .order("name", { ascending: true });
+        const query = applyHiddenFilter(
+            supabase.from("data_models").select(baseSelect),
+            includeHidden
+        );
+        const { data, error } = await query.order("name", { ascending: true });
 
         if (error) {
             // eslint-disable-next-line no-console
@@ -122,10 +132,10 @@ async function fetchModelsFromDb(filters: GetModelsFilter): Promise<any[]> {
         { data: byNameData, error: byNameError },
         { data: orgsData, error: orgsError },
     ] = await Promise.all([
-        supabase
-            .from("data_models")
-            .select(baseSelect)
-            .ilike("name", like),
+        applyHiddenFilter(
+            supabase.from("data_models").select(baseSelect),
+            includeHidden
+        ).ilike("name", like),
         supabase
             .from("data_organisations")
             .select("organisation_id")
@@ -160,10 +170,10 @@ async function fetchModelsFromDb(filters: GetModelsFilter): Promise<any[]> {
         const {
             data: modelsByOrg,
             error: modelsByOrgError,
-        } = await supabase
-            .from("data_models")
-            .select(baseSelect)
-            .in("organisation_id", orgIds);
+        } = await applyHiddenFilter(
+            supabase.from("data_models").select(baseSelect),
+            includeHidden
+        ).in("organisation_id", orgIds);
 
         if (modelsByOrgError) {
             // eslint-disable-next-line no-console
@@ -202,8 +212,8 @@ async function fetchModelsFromDb(filters: GetModelsFilter): Promise<any[]> {
     return uniqueRows;
 }
 
-export async function getAllModels(): Promise<ModelCard[]> {
-    const rows = await fetchModelsFromDb({});
+export async function getAllModels(includeHidden: boolean): Promise<ModelCard[]> {
+    const rows = await fetchModelsFromDb({ includeHidden });
 
     const models: ModelCard[] = rows
         .map((raw: any) => mapRawToModelCard(raw))
@@ -213,7 +223,7 @@ export async function getAllModels(): Promise<ModelCard[]> {
 }
 
 export async function getModelsFiltered(
-    filters: GetModelsFilter
+    filters: GetModelsFilter & { includeHidden: boolean }
 ): Promise<ModelCard[]> {
     const rows = await fetchModelsFromDb(filters);
 
@@ -224,12 +234,12 @@ export async function getModelsFiltered(
     return models;
 }
 
-export async function getAllModelsCached(): Promise<ModelCard[]> {
+export async function getAllModelsCached(includeHidden: boolean): Promise<ModelCard[]> {
     "use cache";
 
     cacheLife("days");
     cacheTag("data:models");
 
     console.log("[fetch] HIT DB for models");
-    return getAllModels();
+    return getAllModels(includeHidden);
 }

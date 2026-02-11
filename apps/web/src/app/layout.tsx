@@ -5,14 +5,13 @@ import { Toaster } from "sonner";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Analytics } from "@vercel/analytics/next";
-import { GoogleAnalytics } from "@next/third-parties/google";
 import { Montserrat } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { TailwindIndicator } from "@/components/tailwind-indicator";
 import { Metadata } from "next";
 import { METADATA_BASE } from "@/lib/seo";
 import { GA_MEASUREMENT_ID } from "@/lib/analytics";
-import { ChatWidget } from "@/components/chat-widget";
+import { CookieConsentManager } from "@/components/analytics/CookieConsentManager";
 
 const montserrat = Montserrat({ subsets: ["latin"] });
 
@@ -60,13 +59,18 @@ export default function RootLayout({
 }) {
 	return (
 		<html lang="en" className="h-full" suppressHydrationWarning>
+			{/* <head>
+				{process.env.NODE_ENV === "development" ? (
+					<script src="https://unpkg.com/react-scan/dist/auto.global.js" />
+				) : null}
+			</head> */}
 			<body
 				className={cn(
 					montserrat.className,
 					"min-h-screen h-full bg-background antialiased"
 				)}
 			>
-				<GoogleAnalytics gaId={GA_MEASUREMENT_ID} />
+				<CookieConsentManager gaMeasurementId={GA_MEASUREMENT_ID} />
 				<ThemeProvider
 					attribute="class"
 					defaultTheme="light"
@@ -75,7 +79,6 @@ export default function RootLayout({
 				>
 					<TooltipProvider>
 						<NuqsAdapter>{children}</NuqsAdapter>
-						<ChatWidget />
 						<TailwindIndicator />
 					</TooltipProvider>
 				</ThemeProvider>

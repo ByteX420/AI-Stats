@@ -9,6 +9,7 @@ import {
 	Grid as GridIcon,
 	Table as TableIcon,
 	Filter,
+	Layers as LayersIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +24,7 @@ import {
 	TooltipTrigger,
 	TooltipContent,
 } from "@/components/ui/tooltip";
+import { featureLabels } from "@/lib/config/featureLabels";
 
 interface ModelsTableHeaderProps {
 	allEndpoints: string[];
@@ -41,6 +43,7 @@ export default function ModelsTableHeader({
 }: ModelsTableHeaderProps) {
 	const pathname = usePathname();
 	const isTable = pathname?.includes("/models/table");
+	const isCollections = pathname?.includes("/models/collections");
 
 	const [search, setSearch] = useQueryState("search", {
 		defaultValue: "",
@@ -145,6 +148,31 @@ export default function ModelsTableHeader({
 								</TooltipTrigger>
 								<TooltipContent side="top">
 									Table view
+								</TooltipContent>
+							</Tooltip>
+
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										size="sm"
+										asChild
+										variant={
+											isCollections
+												? "default"
+												: "outline"
+										}
+										className="px-3 py-1 text-xs whitespace-nowrap rounded-none"
+									>
+										<Link
+											href="/models/collections"
+											aria-label="Collections view"
+										>
+											<LayersIcon className="h-4 w-4" />
+										</Link>
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent side="top">
+									Collections
 								</TooltipContent>
 							</Tooltip>
 						</div>
@@ -456,7 +484,7 @@ export default function ModelsTableHeader({
 												htmlFor={`feature-${feature}`}
 												className="text-sm"
 											>
-												{feature}
+												{featureLabels[feature] ?? feature}
 											</label>
 										</div>
 									))}
@@ -600,6 +628,31 @@ export default function ModelsTableHeader({
 								</TooltipTrigger>
 								<TooltipContent side="top">
 									Table view
+								</TooltipContent>
+							</Tooltip>
+
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										size="sm"
+										asChild
+										variant={
+											isCollections
+												? "default"
+												: "outline"
+										}
+										className="px-3 py-1 text-xs whitespace-nowrap rounded-none"
+									>
+										<Link
+											href="/models/collections"
+											aria-label="Collections view"
+										>
+											<LayersIcon className="h-4 w-4" />
+										</Link>
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent side="top">
+									Collections
 								</TooltipContent>
 							</Tooltip>
 						</div>

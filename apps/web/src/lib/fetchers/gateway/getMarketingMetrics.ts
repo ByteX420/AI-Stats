@@ -1,8 +1,6 @@
-"use server";
-
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createClient } from "@/utils/supabase/server";
-import { connection } from "next/server";
+import { cacheLife, cacheTag } from "next/cache";
+import { createAdminClient } from "@/utils/supabase/admin";
 
 type RawGatewayRequest = {
 	created_at: string;
@@ -12,11 +10,13 @@ type RawGatewayRequest = {
 	usage?: any;
 	provider?: string | null;
 	model_id?: string | null;
+	error_code?: string | null;
+	status_code?: number | null;
 };
 
 type ActiveProviderModelRow = {
-	model_id: string | null;
-	api_provider_id: string | null;
+	api_model_id: string | null;
+	provider_id: string | null;
 	effective_from?: string | null;
 	effective_to?: string | null;
 };
@@ -174,10 +174,6 @@ function applyUsageSnapshot(
 		...metrics,
 		summary: {
 			...metrics.summary,
-			uptimePct:
-				typeof snapshot.uptimePct === "number"
-					? snapshot.uptimePct
-					: metrics.summary.uptimePct,
 			tokens24h:
 				typeof snapshot.totalTokens === "number"
 					? snapshot.totalTokens
@@ -237,7 +233,7 @@ async function fetchRequests(
 		const { data, error } = await client
 			.from("gateway_requests")
 			.select(
-				"created_at, success, latency_ms, generation_ms, usage, provider, model_id"
+				"created_at, success, latency_ms, generation_ms, usage, provider, model_id, error_code, status_code"
 			)
 			.gte("created_at", fromIso)
 			.lte("created_at", toIso)
@@ -259,6 +255,37 @@ async function fetchRequests(
 	return rows;
 }
 
+function isUserError(row: RawGatewayRequest): boolean {
+	const code = String(row?.error_code ?? "").toLowerCase();
+	if (code.startsWith("user:")) return true;
+	if (code.startsWith("upstream:")) return false;
+	if (code.startsWith("system:")) return false;
+	const sc = Number(row?.status_code ?? 0);
+	if (Number.isFinite(sc)) {
+		if (sc >= 500) return false;
+		if (sc === 408 || sc === 429) return false;
+		if (sc >= 400 && sc < 500) return true;
+	}
+	return false;
+}
+
+function isSuccessfulForUptime(row: RawGatewayRequest): boolean {
+	const successFlag =
+		row.success === true ||
+		row.success === 1 ||
+		row.success === "true" ||
+		row.success === "t";
+	if (successFlag) return true;
+
+	const statusCode = Number(row?.status_code ?? 0);
+	if (Number.isFinite(statusCode) && statusCode > 0 && statusCode < 400) {
+		return true;
+	}
+
+	if (isUserError(row)) return true;
+	return false;
+}
+
 async function fetchActiveGatewayModels(
 	client: SupabaseClient,
 	now = new Date()
@@ -273,9 +300,11 @@ async function fetchActiveGatewayModels(
 
 	const { data, error } = await client
 		.from("data_api_provider_models")
-		.select("model_id, api_provider_id, effective_from, effective_to")
+		.select("api_model_id, provider_id, effective_from, effective_to")
 		.eq("is_active_gateway", true)
 		.or(effectiveClause);
+
+	console.log("Supabase response for active gateway models:", { data, error });
 
 	if (error) {
 		throw new Error(error.message ?? "Failed to load supported models");
@@ -319,11 +348,7 @@ function buildMetricsFromRows(
 		bucket.requests += 1;
 		totalRequests += 1;
 
-		const success =
-			row.success === true ||
-			row.success === 1 ||
-			row.success === "true" ||
-			row.success === "t";
+		const success = isSuccessfulForUptime(row);
 		if (success) {
 			bucket.success += 1;
 			totalSuccess += 1;
@@ -429,8 +454,8 @@ function buildMetricsFromRows(
 	const modelIds = new Set<string>();
 	const providerIds = new Set<string>();
 	for (const row of supportedModels) {
-		if (row.model_id) modelIds.add(row.model_id);
-		if (row.api_provider_id) providerIds.add(row.api_provider_id);
+		if (row.api_model_id) modelIds.add(row.api_model_id);
+		if (row.provider_id) providerIds.add(row.provider_id);
 	}
 
 	return {
@@ -491,8 +516,8 @@ function buildFallbackMetrics(
 	const modelIds = new Set<string>();
 	const providerIds = new Set<string>();
 	for (const row of supportedModels) {
-		if (row.model_id) modelIds.add(row.model_id);
-		if (row.api_provider_id) providerIds.add(row.api_provider_id);
+		if (row.api_model_id) modelIds.add(row.api_model_id);
+		if (row.provider_id) providerIds.add(row.provider_id);
 	}
 
 	return {
@@ -525,9 +550,22 @@ function buildFallbackMetrics(
 export async function getGatewayMarketingMetrics(
 	hours = HOURS_DEFAULT
 ): Promise<GatewayMarketingMetrics> {
-	await connection();
+	"use cache";
+
+	const normalizedHours =
+		Number.isFinite(hours) && hours > 0 ? Math.round(hours) : HOURS_DEFAULT;
+	if (normalizedHours >= 24 * 30) {
+		cacheLife("days");
+	} else if (normalizedHours >= 24) {
+		cacheLife("hours");
+	} else {
+		cacheLife("minutes");
+	}
+	cacheTag("gateway:marketing-metrics");
+	cacheTag("data:gateway_requests");
+
 	const now = new Date();
-	const client = await createClient();
+	const client = createAdminClient();
 
 	let supportedRows: ActiveProviderModelRow[] = [];
 	let supportedError: string | undefined;

@@ -1,25 +1,60 @@
 import React from "react";
 import { Card } from "@/components/ui/card";
-import getModelPricing, {
-	type ProviderPricing,
-} from "@/lib/fetchers/models/getModelPricing";
+import getModelPricing from "@/lib/fetchers/models/getModelPricing";
+import getModelOverviewHeader from "@/lib/fetchers/models/getModelOverviewHeader";
+import { getModelProviderRuntimeStatsCached } from "@/lib/fetchers/models/getModelProviderRuntimeStats";
+import { getModelSubscriptionPlansCached } from "@/lib/fetchers/models/getModelSubscriptionPlans";
+import { getModelProviderRoutingHealthCached } from "@/lib/fetchers/models/getModelProviderRoutingHealth";
 import ModelPricingClient from "@/components/(data)/model/pricing/ModelPricingClient";
 import { withUTM } from "@/lib/utm";
 
-export default async function ModelPricing({ modelId }: { modelId: string }) {
-	const providers: ProviderPricing[] = await getModelPricing(modelId);
+export default async function ModelPricing({
+	modelId,
+	includeHidden,
+}: {
+	modelId: string;
+	includeHidden: boolean;
+}) {
+	const [providers, header, subscriptionPlans] = await Promise.all([
+		getModelPricing(modelId, includeHidden),
+		getModelOverviewHeader(modelId, includeHidden),
+		getModelSubscriptionPlansCached(modelId, includeHidden),
+	]);
 
 	// Only consider providers that actually have pricing rules
 	const providersWithRules = (providers || []).filter(
 		(p) => Array.isArray(p.pricing_rules) && p.pricing_rules.length > 0
 	);
 
-	if (!providersWithRules.length) {
+	const runtimeStats = await getModelProviderRuntimeStatsCached({
+		modelId,
+		providerIds: providersWithRules.map((p) => p.provider.api_provider_id),
+		modelAliases: providersWithRules.flatMap((p) =>
+			p.provider_models.map((pm) => pm.model_id)
+		),
+	});
+	const routingHealth = await getModelProviderRoutingHealthCached({
+		providerIds: providersWithRules.map((p) => p.provider.api_provider_id),
+		windowHours: 24,
+	});
+
+	// console.log(
+	// 	"Providers with rules:",
+	// 	providersWithRules.map((p) => ({
+	// 		name: p.provider.api_provider_name,
+	// 		plans: p.pricing_rules.map((r) => r.pricing_plan || "standard"),
+	// 	}))
+	// );
+
+	if (!providersWithRules.length && !subscriptionPlans.length) {
 		return (
 			<Card className="p-6">
-				<h2 className="text-xl font-semibold mb-2">Pricing</h2>
+				<h2 className="text-xl font-semibold mb-2">
+					Availability + Pricing
+				</h2>
 				<p className="text-sm text-muted-foreground">
-					No pricing information available for this model yet.
+					No API pricing or subscription plan information is available
+					for this model yet.
 				</p>
 				<p className="text-sm text-muted-foreground mt-2">
 					If you know providers we can integrate, please tell us on
@@ -45,5 +80,13 @@ export default async function ModelPricing({ modelId }: { modelId: string }) {
 		);
 	}
 
-	return <ModelPricingClient providers={providersWithRules} />;
+	return (
+		<ModelPricingClient
+			providers={providersWithRules}
+			subscriptionPlans={subscriptionPlans}
+			creatorOrgId={header?.organisation_id ?? null}
+			runtimeStats={runtimeStats}
+			routingHealth={routingHealth}
+		/>
+	);
 }

@@ -3,15 +3,30 @@
 	"compilerOptions": {
 		"lib": ["ES2022", "WebWorker", "DOM.Iterable"],
 		"outDir": "./dist",
-		"rootDir": "./src",
-		"baseUrl": "./src",
-		"paths": {
-			"@/*": ["./*"],
-			"@gateway/*": ["./lib/*"]
-		},
+    "rootDir": "src",
+    "baseUrl": "src",
+    "paths": {
+      "@/*": ["./*"],
+      "@core/*": ["./core/*"],
+      
+      "@pipeline/*": ["./pipeline/*"],
+      "@protocols/*": ["./protocols/*"],
+      "@executors/*": ["./executors/*"],
+      "@providers/*": ["./providers/*"],
+      "@observability/*": ["./observability/*"]
+    },
 		"skipLibCheck": true,
 		"types": ["@cloudflare/workers-types"]
 	},
-	"include": ["./src"],
-	"exclude": ["node_modules", "dist"]
+	"include": ["src"],
+	"exclude": [
+    "node_modules",
+    "dist",
+    "tests",
+    "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx"
+  ]
 }

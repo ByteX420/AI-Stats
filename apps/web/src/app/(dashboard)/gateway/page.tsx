@@ -1,50 +1,69 @@
-import { HeroSection } from "@/components/(gateway)/sections/HeroSection";
-import { WhyWeWinSection } from "@/components/(gateway)/sections/WhyWeWinSection";
-import { CompareSection } from "@/components/(gateway)/sections/CompareSection";
-import { QuickstartSection } from "@/components/(gateway)/sections/QuickstartSection";
-import { PricingSection } from "@/components/(gateway)/sections/PricingSection";
-import { ReliabilitySection } from "@/components/(gateway)/sections/ReliabilitySection";
-import { GetStartedSection } from "@/components/(gateway)/sections/GetStartedSection";
-import { FAQSection } from "@/components/(gateway)/sections/FAQSection";
-import { getGatewayMarketingMetrics } from "@/lib/fetchers/gateway/getMarketingMetrics";
 import type { Metadata } from "next";
 
+import { getGatewayMarketingMetrics } from "@/lib/fetchers/gateway/getMarketingMetrics";
+import { getModelCardsByIdsCached } from "@/lib/fetchers/models/getModelCardsByIds";
+
+import { Hero } from "@/components/landingPage/Gateway/Hero";
+import { Features } from "@/components/landingPage/Gateway/Features";
+import { Integrations } from "@/components/landingPage/Gateway/Integrations";
+import { CompareSection } from "@/components/(gateway)/sections/CompareSection";
+import { FAQSection } from "@/components/(gateway)/sections/FAQSection";
+import { CTA } from "@/components/landingPage/Gateway/CTA";
+
 export const metadata: Metadata = {
-	title: "AI Gateway - Multi-Provider AI API with Routing & Observability",
+	title: "AI Stats Gateway - Single API for Every Model",
 	description:
-		"Route requests to 300+ AI models across leading providers with a single API. The open source AI Stats Gateway adds smart routing, transparent pricing, and full observability to your AI stack.",
-	keywords: [
-		"AI gateway",
-		"AI API",
-		"multi-provider AI",
-		"LLM routing",
-		"model routing",
-		"AI observability",
-		"AI Stats Gateway",
-	],
-	alternates: {
-		canonical: "/gateway",
-	},
+		"AI Stats Gateway standardises provider quirks behind one surface, with routing, reliability, observability, and security for production workloads.",
+	alternates: { canonical: "/gateway" },
 	openGraph: {
 		type: "website",
-		title: "AI Gateway - Multi-Provider AI API with Routing & Observability",
+		title: "AI Stats Gateway — Single API for Every Model",
 		description:
-			"Route requests to 300+ AI models across leading providers with a single API. The open source AI Stats Gateway adds smart routing, transparent pricing, and full observability to your AI stack.",
+			"Unify 50+ AI providers behind one API. Route intelligently by latency, cost, and availability. Ship production workloads with confidence.",
 	},
 };
 
 export default async function GatewayMarketingPage() {
-	const metrics = await getGatewayMarketingMetrics();
+	const monthlyWindowHours = 24 * 30;
+	const [gatewayMetrics, popularModels] = await Promise.all([
+		getGatewayMarketingMetrics(monthlyWindowHours),
+		getModelCardsByIdsCached(
+			[
+				"openai/gpt-5-2-2025-12-11",
+				"anthropic/claude-opus-4-5-2025-11-24",
+				"google/gemini-3-pro-preview-2025-11-18",
+				"minimax/minimax-m2-1-2025-12-23",
+			],
+			false
+		),
+	]);
+
 	return (
-		<main>
-			<HeroSection metrics={metrics} />
-			<WhyWeWinSection />
+		<div className="container mx-auto flex flex-col items-center pt-16 sm:pt-20">
+			{/* Hero with stats, provider marquee, and popular models */}
+		<Hero
+			stats={{
+				...gatewayMetrics.summary,
+			}}
+			statsWindowHours={monthlyWindowHours}
+			tokensWindowHours={monthlyWindowHours}
+			popularModels={popularModels}
+		/>
+
+			{/* Features grid showing key capabilities */}
+			<Features />
+
+			{/* SDK integrations with code examples */}
+			<Integrations />
+
+			{/* Comparison table vs competitors */}
 			<CompareSection />
-			<QuickstartSection metrics={metrics} />
-			<PricingSection />
-			<ReliabilitySection metrics={metrics} />
-			<GetStartedSection />
+
+			{/* Frequently asked questions */}
 			<FAQSection />
-		</main>
+
+			{/* Final CTA section */}
+			<CTA />
+		</div>
 	);
 }

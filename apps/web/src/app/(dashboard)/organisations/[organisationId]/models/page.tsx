@@ -5,9 +5,9 @@ import type { Metadata } from "next";
 import { buildMetadata } from "@/lib/seo";
 import { getOrganisationDataCached } from "@/lib/fetchers/organisations/getOrganisation";
 
-async function fetchOrganisation(organisationId: string) {
+async function fetchOrganisation(organisationId: string, includeHidden: boolean) {
 	try {
-		return await getOrganisationDataCached(organisationId);
+		return await getOrganisationDataCached(organisationId, 8, includeHidden);
 	} catch (error) {
 		console.warn("[seo] failed to load organisation metadata", {
 			organisationId,
@@ -21,7 +21,8 @@ export async function generateMetadata(props: {
 	params: Promise<{ organisationId: string }>;
 }): Promise<Metadata> {
 	const { organisationId } = await props.params;
-	const organisation = await fetchOrganisation(organisationId);
+	const includeHidden = false;
+	const organisation = await fetchOrganisation(organisationId, includeHidden);
 	const path = `/organisations/${organisationId}/models`;
 	const imagePath = `/og/organisations/${organisationId}`;
 
@@ -75,7 +76,8 @@ export default async function Page({
 }) {
 	const { organisationId } = await params;
 
-	const models = await getOrganisationModelsCached(organisationId);
+	const includeHidden = false;
+	const models = await getOrganisationModelsCached(organisationId, includeHidden);
 
 	return (
 		<OrganisationDetailShell organisationId={organisationId}>

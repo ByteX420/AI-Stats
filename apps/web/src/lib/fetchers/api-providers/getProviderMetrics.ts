@@ -1,6 +1,7 @@
 "use server";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { cacheLife, cacheTag } from "next/cache";
 import { createAdminClient } from "@/utils/supabase/admin";
 
 type RawGatewayRequest = {
@@ -12,6 +13,8 @@ type RawGatewayRequest = {
 	usage?: any;
 	provider?: string | null;
 	model_id?: string | null;
+	error_code?: string | null;
+	status_code?: number | null;
 };
 
 export type ProviderTimeseriesPoint = {
@@ -66,6 +69,37 @@ function bucketStartISO(date: Date): string {
 	return bucket.toISOString();
 }
 
+function isUserError(row: RawGatewayRequest): boolean {
+	const code = String(row?.error_code ?? "").toLowerCase();
+	if (code.startsWith("user:")) return true;
+	if (code.startsWith("upstream:")) return false;
+	if (code.startsWith("system:")) return false;
+	const sc = Number(row?.status_code ?? 0);
+	if (Number.isFinite(sc)) {
+		if (sc >= 500) return false;
+		if (sc === 408 || sc === 429) return false;
+		if (sc >= 400 && sc < 500) return true;
+	}
+	return false;
+}
+
+function isSuccessfulForUptime(row: RawGatewayRequest): boolean {
+	const successFlag =
+		row.success === true ||
+		row.success === 1 ||
+		row.success === "true" ||
+		row.success === "t";
+	if (successFlag) return true;
+
+	const statusCode = Number(row?.status_code ?? 0);
+	if (Number.isFinite(statusCode) && statusCode > 0 && statusCode < 400) {
+		return true;
+	}
+
+	if (isUserError(row)) return true;
+	return false;
+}
+
 async function fetchProviderRequests(
 	client: SupabaseClient,
 	providerId: string,
@@ -99,7 +133,7 @@ async function fetchProviderRequests(
 			const { data, error } = await client
 				.from("gateway_requests")
 				.select(
-					"created_at, success, latency_ms, throughput, generation_ms, usage, provider, model_id"
+					"created_at, success, latency_ms, throughput, generation_ms, usage, provider, model_id, error_code, status_code"
 				)
 				.eq("provider", providerId)
 				.gte("created_at", effectiveFrom)
@@ -155,11 +189,7 @@ function buildProviderMetricsFromRows(
 		bucket.requests += 1;
 		totalRequests += 1;
 
-		const success =
-			row.success === true ||
-			row.success === 1 ||
-			row.success === "true" ||
-			row.success === "t";
+		const success = isSuccessfulForUptime(row);
 		if (success) {
 			bucket.success += 1;
 			totalSuccess += 1;
@@ -240,13 +270,16 @@ export async function getProviderMetrics(
 	providerId: string,
 	hours = HOURS_DEFAULT
 ): Promise<ProviderMetrics> {
+	"use cache";
+	cacheLife("minutes");
+	cacheTag("data:gateway_requests");
+	cacheTag(`data:gateway_requests:provider:${providerId}`);
+
 	const now = new Date();
 	const client = createAdminClient();
 
 	try {
 		const rows = await fetchProviderRequests(client, providerId, hours, now);
-
-		console.log(`Fetched ${rows.length} gateway requests for provider ${providerId}`);
 
 		if (!rows.length) {
 			// Return empty metrics if no data

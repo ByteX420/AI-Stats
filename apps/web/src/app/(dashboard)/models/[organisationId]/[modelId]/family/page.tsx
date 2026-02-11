@@ -25,9 +25,9 @@ import {
 	type ModelRouteParams,
 } from "@/components/(data)/model/model-route-helpers";
 
-async function fetchModel(modelId: string) {
+async function fetchModel(modelId: string, includeHidden: boolean) {
 	try {
-		return await getModelOverview(modelId);
+		return await getModelOverview(modelId, includeHidden);
 	} catch (error) {
 		console.warn("[seo] failed to load model overview for metadata", {
 			modelId,
@@ -42,7 +42,8 @@ export async function generateMetadata(props: {
 }): Promise<Metadata> {
 	const params = await props.params;
 	const modelId = getModelIdFromParams(params);
-	const model = await fetchModel(modelId);
+	const includeHidden = false;
+	const model = await fetchModel(modelId, includeHidden);
 	const path = `/models/${modelId}/family`;
 	const imagePath = `/og/models/${modelId}`;
 
@@ -150,10 +151,11 @@ export default async function Page({
 }) {
 	const routeParams = await params;
 	const modelId = getModelIdFromParams(routeParams);
+	const includeHidden = false;
 
-	const header = await getModelOverviewHeader(modelId);
+	const header = await getModelOverviewHeader(modelId, includeHidden);
 	const familyId = header?.family_id ?? null;
-	const family = familyId ? await getFamilyModels(familyId) : null;
+	const family = familyId ? await getFamilyModels(familyId, includeHidden) : null;
 
 	const members = family?.models ?? [];
 	const hasFamily = Boolean(family && members.length > 0);
@@ -193,7 +195,7 @@ export default async function Page({
 			: null;
 
 	return (
-		<ModelDetailShell modelId={modelId} tab="family">
+		<ModelDetailShell modelId={modelId} tab="family" includeHidden={includeHidden}>
 			<div className="mx-auto w-full space-y-6">
 				{hasFamily ? (
 					<div className="grid gap-6 lg:grid-cols-[320px,minmax(0,1fr)]">

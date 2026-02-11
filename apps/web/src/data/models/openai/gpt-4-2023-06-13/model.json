@@ -1,7 +1,7 @@
 {
   "model_id": "openai/gpt-4-2023-06-13",
   "organisation_id": "openai",
-  "name": "GPT 4",
+  "name": "GPT 4 (2023-06-13)",
   "status": "Available",
   "previous_model_id": "openai/gpt-4-2023-03-14",
   "announced_date": null,
@@ -47,7 +47,7 @@
       "is_self_reported": false,
       "other_info": null,
       "source_link": "https://lmarena.ai/leaderboard/text",
-      "rank": 50
+      "rank": 48
     }
   ]
 }

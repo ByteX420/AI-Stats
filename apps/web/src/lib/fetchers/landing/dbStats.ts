@@ -1,5 +1,7 @@
 // lib/fetchers/landing/dbStats.ts
-import { createClient } from "@/utils/supabase/server";
+import { cacheLife, cacheTag } from "next/cache";
+import { createAdminClient } from "@/utils/supabase/admin";
+import { applyHiddenFilter } from "@/lib/fetchers/models/visibility";
 
 export type DbStats = {
     models: number;
@@ -20,7 +22,17 @@ function getCount(res: { count: number | null; error: any }) {
 }
 
 export default async function getDbStats(): Promise<DbStats> {
-    const supabase = await createClient(); // must allow read via RLS for these tables
+    "use cache";
+
+    cacheLife("hours");
+    cacheTag("landing:db-stats");
+    cacheTag("data:models");
+    cacheTag("data:organisations");
+    cacheTag("data:benchmarks");
+    cacheTag("data:api_providers");
+
+    const supabase = createAdminClient();
+    const includeHidden = false;
 
     // Use a HEAD count to avoid transferring rows
     const [
@@ -30,7 +42,10 @@ export default async function getDbStats(): Promise<DbStats> {
         benchResultsRes,
         providersRes,
     ] = await Promise.all([
-        supabase.from("data_models").select("*", { count: "exact", head: true }),
+        applyHiddenFilter(
+            supabase.from("data_models").select("*", { count: "exact", head: true }),
+            includeHidden
+        ),
         supabase.from("data_organisations").select("*", { count: "exact", head: true }),
         supabase.from("data_benchmarks").select("*", { count: "exact", head: true }),
         supabase.from("data_benchmark_results").select("*", { count: "exact", head: true }),

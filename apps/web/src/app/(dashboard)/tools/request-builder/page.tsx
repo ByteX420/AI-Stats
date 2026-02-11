@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import { buildMetadata } from "@/lib/seo";
 import RequestBuilder from "@/components/(tools)/RequestBuilder";
 import { getGatewaySupportedModels } from "@/lib/fetchers/gateway/getGatewaySupportedModelIds";
+import { resolveIncludeHidden } from "@/lib/fetchers/models/visibility";
 
 export const metadata: Metadata = buildMetadata({
     title: "Request builder - Generate AI API Requests & Code for AI Stats Gateway",
@@ -19,7 +20,8 @@ export const metadata: Metadata = buildMetadata({
 });
 
 export default async function RequestBuilderPage() {
-    const models = await getGatewaySupportedModels();
+    const includeHidden = await resolveIncludeHidden();
+    const models = await getGatewaySupportedModels(includeHidden);
 
     return <RequestBuilder models={models} />;
 }

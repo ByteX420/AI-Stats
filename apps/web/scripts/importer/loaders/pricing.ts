@@ -1,6 +1,6 @@
 import { join, basename } from "path";
 import { DIR_PRICING } from "../paths";
-import { listDirs, readJsonWithHash, chunk, toInList } from "../util";
+import { listDirs, readJsonWithHash, chunk } from "../util";
 import { client, isDryRun, logWrite, assertOk, pruneRowsByColumn } from "../supa";
 import { createHash } from "crypto";
 import { ChangeTracker } from "../state";
@@ -31,27 +31,22 @@ function digestRule(r: any) {
         pricing_plan: r.pricing_plan ?? r.pricingPlan ?? null,
         tiering_mode: r.tiering_mode ?? r.tieringMode ?? null,
         note: r.note ?? null,
+        effective_from: r.effective_from ?? null,
+        effective_to: r.effective_to ?? null,
         conditions: deepSortObjectKeys(r.match ?? []),
     };
     return createHash("md5").update(JSON.stringify(payload)).digest("hex");
 }
 
-const norm = (arr?: string[]) => (arr && arr.length ? arr.join(",") : "");
-
 type PricingJSON = {
-    key: string;                      // provider:model:endpoint (not required by loader)
-    api_provider_id: string;          // NOTE: matches provider_models column
+    key: string;                      // provider:model:capability_id (not required by loader)
+    api_provider_id: string;          // NOTE: matches providers table
     provider_slug: string;            // not stored
     model_id: string;
-    endpoint: string;
-    provider_model_slug?: string | null;
-    is_active_gateway: boolean;
-    input_modalities?: string[];
-    output_modalities?: string[];
-    effective_from?: string | null;
-    effective_to?: string | null;
+    api_model_id?: string;
+    capability_id?: string;
+    endpoint?: string;
     capability?: Record<string, unknown>;
-    params?: any[];
     rules?: Array<{
         meter: string;
         unit?: string;
@@ -64,6 +59,8 @@ type PricingJSON = {
         note?: string | null;
         match?: PricingMatch[];             // conditions
         priority?: number;
+        effective_from?: string | null;
+        effective_to?: string | null;
     }>;
 };
 
@@ -75,28 +72,15 @@ type PricingMatch = {
     value: string | number | Array<any>;
 }
 
-type EndpointState = {
+type CapabilityState = {
     api_provider_id: string;
-    endpoint: string;
+    capability_id: string;
     ruleReplacements: Array<{ model_key: string; rows: PricingRuleRow[] }>;
-    dirtyModels: Array<{
-        id?: string;
-        api_provider_id: string;
-        model_id: string;
-        provider_model_slug: string | null;
-        endpoint: string;
-        is_active_gateway: boolean;
-        input_modalities: string;
-        output_modalities: string;
-        effective_from: string | null;
-        effective_to: string | null;
-        params: unknown[];
-    }>;
-    keepModelIds: Set<string>;
 };
 
 type PricingRuleRow = {
     model_key: string;
+    capability_id: string;
     pricing_plan: string;
     meter: string;
     unit: string;
@@ -107,82 +91,71 @@ type PricingRuleRow = {
     note: string | null;
     match: unknown[];
     priority: number;
+    effective_from: string | null;
+    effective_to: string | null;
 };
 
-export async function loadPricing(tracker: ChangeTracker) {
+export async function loadPricing(
+    tracker: ChangeTracker,
+    { modelId, forceFull = false }: { modelId: string | null; forceFull?: boolean }
+) {
     const supa = client();
-    tracker.touchPrefix(DIR_PRICING);
-    const providerModelIds = new Set<string>();
+    if (!modelId) tracker.touchPrefix(DIR_PRICING);
     const pricingRuleKeys = new Set<string>();
     let hasChanges = false;
+    let scannedFiles = 0;
+    let queuedModelKeys = 0;
 
-    const endpoints = new Map<string, EndpointState>();
+    const capabilities = new Map<string, CapabilityState>();
 
     const providerDirs = await listDirs(DIR_PRICING);
 
     for (const provPath of providerDirs) {
         const api_provider_id = basename(provPath);
-        const endpointDirs = await listDirs(provPath);
-        for (const epPath of endpointDirs) {
-            const endpoint = basename(epPath);
-            const modelDirs = await listDirs(epPath);
-            const endpointKey = `${api_provider_id}::${endpoint}`;
-
-            const endpointState: EndpointState = endpoints.get(endpointKey) ?? {
-                api_provider_id,
-                endpoint,
-                dirtyModels: [],
-                keepModelIds: new Set<string>(),
-                ruleReplacements: [],
-            };
+        const capabilityDirs = await listDirs(provPath);
+        for (const capPath of capabilityDirs) {
+            const capabilityFallback = basename(capPath);
+            const modelDirs = await listDirs(capPath);
 
             for (const mPath of modelDirs) {
                 const fp = join(mPath, "pricing.json");
                 const { data: j, hash } = await readJsonWithHash<PricingJSON>(fp);
-                const computedKey = j.key && j.key.trim() ? j.key : `${j.api_provider_id}:${j.model_id}:${j.endpoint}`;
+                const modelIdFromFile = j.model_id ?? j.api_model_id;
+                if (!modelIdFromFile) {
+                    throw new Error(`pricing.json missing model_id/api_model_id: ${fp}`);
+                }
+                if (modelId && modelIdFromFile !== modelId) continue;
+                scannedFiles += 1;
+                const capability_id = j.capability_id ?? j.endpoint ?? capabilityFallback;
+                const computedKey =
+                    j.key && j.key.trim()
+                        ? j.key
+                        : `${j.api_provider_id}:${modelIdFromFile}:${capability_id}`;
                 const change = tracker.track(fp, hash, {
                     api_provider_id: j.api_provider_id,
-                    endpoint: j.endpoint,
-                    model_id: j.model_id,
+                    capability_id,
+                    model_id: modelIdFromFile,
                     model_key: computedKey,
                 });
 
-                const provider_model_slug = (j.provider_model_slug ?? null);
-                const id = computedKey; // table requires an `id` primary key; use composed key
-
-                providerModelIds.add(id);
-                endpointState.keepModelIds.add(j.model_id);
-
-                const providerModelRow = {
-                    id,
-                    api_provider_id: j.api_provider_id,
-                    model_id: j.model_id,
-                    provider_model_slug,
-                    endpoint: j.endpoint,
-                    is_active_gateway: !!j.is_active_gateway,
-                    input_modalities: norm(j.input_modalities),
-                    output_modalities: norm(j.output_modalities),
-                    effective_from: j.effective_from ?? null,
-                    effective_to: j.effective_to ?? null,
-                    params: j.params ?? [],
+                const capabilityKey = `${api_provider_id}::${capability_id}`;
+                const capabilityState: CapabilityState = capabilities.get(capabilityKey) ?? {
+                    api_provider_id,
+                    capability_id,
+                    ruleReplacements: [],
                 };
-
-                if (change.status !== "unchanged") {
-                    endpointState.dirtyModels.push(providerModelRow);
-                    hasChanges = true;
-                }
 
                 // Per-file duplicate handling (exact dupes get :occur suffix; near-dupes differ by hash)
                 const ruleRows = j.rules || [];
                 if (ruleRows.length) pricingRuleKeys.add(computedKey);
 
-                const seenBuckets = new Map<string, number>(); // key: provider|model|ep|meter|prio|digest
+                const seenBuckets = new Map<string, number>(); // key: provider||model|capability|meter|prio|digest
                 const desiredRules: PricingRuleRow[] = [];
 
                 for (const r of ruleRows) {
                     const prio = r.priority ?? 100;
                     const digest = digestRule(r);
-                    const bucket = `${j.api_provider_id}|${j.model_id}|${j.endpoint}|${r.meter}|${prio}|${digest}`;
+                    const bucket = `${j.api_provider_id}|${modelIdFromFile}|${capability_id}|${r.meter}|${prio}|${digest}`;
                     const occur = (seenBuckets.get(bucket) ?? 0) + 1;
                     seenBuckets.set(bucket, occur);
 
@@ -193,6 +166,7 @@ export async function loadPricing(tracker: ChangeTracker) {
 
                     desiredRules.push({
                         model_key: computedKey,
+                        capability_id,
                         pricing_plan,
                         meter: r.meter,
                         unit: unit,
@@ -203,93 +177,46 @@ export async function loadPricing(tracker: ChangeTracker) {
                         note: r.note ?? null,
                         match: r.match ?? [],
                         priority: prio,
+                        effective_from: r.effective_from ?? null,
+                        effective_to: r.effective_to ?? null,
                     });
                 }
 
-                if (change.status !== "unchanged") {
-                    endpointState.ruleReplacements.push({ model_key: computedKey, rows: desiredRules });
+                if (modelId || forceFull || change.status !== "unchanged") {
+                    capabilityState.ruleReplacements.push({ model_key: computedKey, rows: desiredRules });
                     hasChanges = true;
+                    queuedModelKeys += 1;
                 }
-            }
 
-            endpoints.set(endpointKey, endpointState);
+                capabilities.set(capabilityKey, capabilityState);
+            }
         }
     }
 
-    const deleted = tracker.getDeleted(DIR_PRICING);
+    const deleted = modelId ? [] : tracker.getDeleted(DIR_PRICING);
     if (deleted.length) hasChanges = true;
-    const deletedByEndpoint = new Map<string, Array<{ model_key?: string; model_id?: string }>>();
+    const deletedByCapability = new Map<string, Array<{ model_key?: string }>>();
     for (const d of deleted) {
         const meta = d.info.meta || {};
         const api_provider_id = meta.api_provider_id;
-        const endpoint = meta.endpoint;
-        if (!api_provider_id || !endpoint) continue;
-        const endpointKey = `${api_provider_id}::${endpoint}`;
-        const arr = deletedByEndpoint.get(endpointKey) ?? [];
-        arr.push({ model_key: meta.model_key, model_id: meta.model_id });
-        deletedByEndpoint.set(endpointKey, arr);
+        const capability_id = meta.capability_id ?? meta.endpoint;
+        if (!api_provider_id || !capability_id) continue;
+        const capabilityKey = `${api_provider_id}::${capability_id}`;
+        const arr = deletedByCapability.get(capabilityKey) ?? [];
+        arr.push({ model_key: meta.model_key });
+        deletedByCapability.set(capabilityKey, arr);
     }
 
-    for (const endpointKey of new Set([...endpoints.keys(), ...deletedByEndpoint.keys()])) {
-        const endpointState = endpoints.get(endpointKey);
-        const [api_provider_id, endpoint] = endpointKey.split("::");
+    for (const capabilityKey of new Set([...capabilities.keys(), ...deletedByCapability.keys()])) {
+        const capabilityState = capabilities.get(capabilityKey);
+        const ruleReplacements = capabilityState?.ruleReplacements ?? [];
+        const deletedEntries = deletedByCapability.get(capabilityKey) ?? [];
 
-        const keepModelIds = endpointState
-            ? [...endpointState.keepModelIds]
-            : [];
-
-        const dirtyProviderModels = endpointState?.dirtyModels ?? [];
-        const ruleReplacements = endpointState?.ruleReplacements ?? [];
-        const deletedEntries = deletedByEndpoint.get(endpointKey) ?? [];
-
-        const hasEndpointChanges =
-            dirtyProviderModels.length > 0 ||
+        const hasCapabilityChanges =
             ruleReplacements.length > 0 ||
             deletedEntries.length > 0;
 
-        if (!hasEndpointChanges) continue;
-
-        // ---- provider_models ----
-        if (isDryRun()) {
-            for (const r of dirtyProviderModels) {
-                logWrite("public.data_api_provider_models", "UPSERT", r, {
-                    onConflict: "api_provider_id,endpoint,model_id",
-                });
-            }
-        } else if (dirtyProviderModels.length) {
-            for (const group of chunk(dirtyProviderModels, 500)) {
-                assertOk(
-                    await supa
-                        .from("data_api_provider_models")
-                        .upsert(group, { onConflict: "api_provider_id,endpoint,model_id" }),
-                    "upsert data_api_provider_models"
-                );
-            }
-        }
-
-        // Delete rows for models removed from this endpoint
-        if (!isDryRun()) {
-            if (keepModelIds.length) {
-                assertOk(
-                    await supa
-                        .from("data_api_provider_models")
-                        .delete()
-                        .eq("api_provider_id", api_provider_id)
-                        .eq("endpoint", endpoint)
-                        .not("model_id", "in", toInList(keepModelIds)),
-                    "prune data_api_provider_models"
-                );
-            } else {
-                assertOk(
-                    await supa
-                        .from("data_api_provider_models")
-                        .delete()
-                        .eq("api_provider_id", api_provider_id)
-                        .eq("endpoint", endpoint),
-                    "prune-all data_api_provider_models"
-                );
-            }
-        }
+        if (!hasCapabilityChanges) continue;
 
         // ---- pricing_rules for dirty/deleted model_keys ----
         const ruleDeletes = new Set<string>();
@@ -328,20 +255,24 @@ export async function loadPricing(tracker: ChangeTracker) {
         }
     }
 
-    if (!hasChanges) return;
+    if (!hasChanges) {
+        console.log(
+            `[pricing-import] No pricing changes detected. scanned_files=${scannedFiles} model_filter=${modelId ?? "none"}`
+        );
+        return;
+    }
 
-    await pruneRowsByColumn(
-        supa,
-        "data_api_provider_models",
-        "id",
-        providerModelIds,
-        "data_api_provider_models"
-    );
-    await pruneRowsByColumn(
-        supa,
-        "data_api_pricing_rules",
-        "model_key",
-        pricingRuleKeys,
-        "data_api_pricing_rules"
+    if (!modelId) {
+        await pruneRowsByColumn(
+            supa,
+            "data_api_pricing_rules",
+            "model_key",
+            pricingRuleKeys,
+            "data_api_pricing_rules"
+        );
+    }
+
+    console.log(
+        `[pricing-import] Applied pricing updates. scanned_files=${scannedFiles} queued_model_keys=${queuedModelKeys} keep_model_keys=${pricingRuleKeys.size} full_mode=${forceFull ? "yes" : "no"} model_filter=${modelId ?? "none"}`
     );
 }

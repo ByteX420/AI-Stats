@@ -1,16 +1,14 @@
 ﻿// app/page.tsx
 import Image from "next/image";
+import { Suspense } from "react";
 import { Pill, ThemedGitHubIcon, LiveDot } from "@/components/landingPage/Pill";
 import GatewayTeaser from "@/components/landingPage/GatewayTeaser";
-import FeaturedHighlight from "@/components/landingPage/FeaturedHighlight";
-import { getActiveFeaturedEntries } from "@/lib/content/featuredUpdate";
 import DatabaseStats from "@/components/landingPage/DatabaseStatistics";
 import PartnerLogos from "@/components/landingPage/PartnerLogos/PartnerLogos";
 import LatestUpdates from "@/components/landingPage/LatestUpdates";
 import type { Metadata } from "next";
 import { withUTM } from "@/lib/utm";
 import { getGatewayMarketingMetrics } from "@/lib/fetchers/gateway/getMarketingMetrics";
-import { connection } from "next/server";
 
 export const metadata: Metadata = {
 	title: "Home",
@@ -21,18 +19,49 @@ export const metadata: Metadata = {
 	},
 };
 
-export default async function Page() {
-	await connection();
+function DatabaseStatsFallback() {
+	return (
+		<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+			{Array.from({ length: 5 }).map((_, index) => (
+				<div
+					key={index}
+					className="h-32 animate-pulse rounded-xl bg-muted"
+				/>
+			))}
+		</div>
+	);
+}
 
-	const featuredEntries = getActiveFeaturedEntries();
+function LatestUpdatesFallback() {
+	return (
+		<section className="space-y-4">
+			<div className="h-10 w-80 animate-pulse rounded bg-muted" />
+			<div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+				{Array.from({ length: 4 }).map((_, index) => (
+					<div
+						key={index}
+						className="h-56 animate-pulse rounded-xl bg-muted"
+					/>
+				))}
+			</div>
+		</section>
+	);
+}
+
+async function GatewayTeaserServer() {
 	const gatewayMetrics = await getGatewayMarketingMetrics();
 
 	return (
-		<div className="container mx-auto mt-12 mb-12 space-y-12 px-4 sm:px-6 lg:px-8">
-			{/* {featuredEntries.length > 0 ? (
-        <FeaturedHighlight entries={featuredEntries} />
-      ) : null} */}
+		<GatewayTeaser
+			providers={gatewayMetrics.summary.supportedProviders ?? 20}
+			models={gatewayMetrics.summary.supportedModels ?? 500}
+		/>
+	);
+}
 
+export default function Page() {
+	return (
+		<div className="container mx-auto mt-12 mb-12 space-y-12 px-4 sm:px-6 lg:px-8">
 			<section className="space-y-8 text-center">
 				<h1 className="text-4xl font-semibold text-gray-900 drop-shadow-xs animate-fade-in dark:text-gray-100 md:text-5xl">
 					The Most Comprehensive AI Model Database
@@ -79,22 +108,22 @@ export default async function Page() {
 				</div>
 			</section>
 
-			<DatabaseStats />
+			<Suspense fallback={<DatabaseStatsFallback />}>
+				<DatabaseStats />
+			</Suspense>
 
 			<div className="space-y-8">
-				<LatestUpdates />
+				<Suspense fallback={<LatestUpdatesFallback />}>
+					<LatestUpdates />
+				</Suspense>
 			</div>
 
 			<div className="mt-4 space-y-4 px-4 sm:px-6 lg:px-8">
-				<GatewayTeaser
-					providers={gatewayMetrics.summary.supportedProviders ?? 20}
-					models={gatewayMetrics.summary.supportedModels ?? 500}
-				/>
+				<Suspense fallback={<GatewayTeaser providers={20} models={500} />}>
+					<GatewayTeaserServer />
+				</Suspense>
 				<PartnerLogos />
 			</div>
-
-			{/* TODO: Build on this and add a detailed trends/analysis section */}
-			{/* <TrendsStrip /> */}
 		</div>
 	);
 }

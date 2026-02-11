@@ -19,7 +19,6 @@ import {
 	ArrowUpRight,
 	MessageSquare,
 } from "lucide-react";
-import { openHeyo } from "@/lib/heyo-client";
 import {
 	formatSupportWait,
 	getSupportAvailability,
@@ -119,12 +118,12 @@ export default function Support() {
 	const supportDescription =
 		"This is a direct line of contact to me, and I will reply as soon as I can!";
 	const supportItem: Item = {
-		key: "status",
-		title: "Contact Support (Fastest)",
+		key: "contact",
+		title: "Contact Support",
+		href: "/contact",
 		description: supportDescription,
 		icon: MessageSquare,
 		badge: "Fastest",
-		onClick: openHeyo,
 	};
 	const otherItems: Item[] = [
 		{

@@ -1,0 +1,9 @@
+{
+  "files": [
+    "client.rs",
+    "lib.rs",
+    "models.rs",
+    "operations.rs"
+  ],
+  "generatedAt": "2026-02-09T11:37:37.373Z"
+}

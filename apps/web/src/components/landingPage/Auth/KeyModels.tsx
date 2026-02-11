@@ -2,6 +2,7 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import type { SignInModel } from "@/lib/fetchers/landing/sign-in/getMainModels";
 import { getMainModelsCached } from "@/lib/fetchers/landing/sign-in/getMainModels";
+import { resolveIncludeHidden } from "@/lib/fetchers/models/visibility";
 
 export default async function KeyModels() {
 	// If consumer didn't provide data, fetch main models by ID from Supabase
@@ -17,7 +18,8 @@ export default async function KeyModels() {
 		"veo-3.1-generate-preview",
 	];
 	try {
-		models = await getMainModelsCached(defaultIds);
+		const includeHidden = await resolveIncludeHidden();
+		models = await getMainModelsCached(defaultIds, includeHidden);
 	} catch (e) {
 		// On error, fallback to empty list
 		console.error("getMainModelsCached error", e);

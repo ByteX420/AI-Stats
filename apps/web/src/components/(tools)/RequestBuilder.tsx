@@ -1,7 +1,5 @@
 "use client";
 
-// TODO: Implement Tools (tools array, tool_choice, and richer tool editing UI)
-
 import { useMemo, useState } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -254,18 +252,19 @@ response.raise_for_status()
 print(response.json()["choices"][0]["message"]["content"])`;
 	};
 
-	const groupedModels = useMemo(() => {
-		const groups = new Map<string, GatewaySupportedModel[]>();
-		for (const entry of models ?? []) {
-			const current = groups.get(entry.providerId) ?? [];
-			current.push(entry);
-			groups.set(entry.providerId, current);
-		}
-		return Array.from(groups.entries()).map(([providerId, entries]) => ({
-			providerId,
-			entries,
-		}));
-	}, [models]);
+    const groupedModels = useMemo(() => {
+        const groups = new Map<string, GatewaySupportedModel[]>();
+        for (const entry of models ?? []) {
+            const current = groups.get(entry.providerId) ?? [];
+            current.push(entry);
+            groups.set(entry.providerId, current);
+        }
+        return Array.from(groups.entries()).map(([providerId, entries]) => ({
+            providerId,
+            providerName: entries[0]?.providerName ?? providerId,
+            entries,
+        }));
+    }, [models]);
 
 	const selectedModel = useMemo(
 		() => (models ?? []).find((m) => m.modelId === model),
@@ -303,8 +302,9 @@ print(response.json()["choices"][0]["message"]["content"])`;
 									>
 										{selectedModel ? (
 											<span className="truncate text-left">
-												{selectedModel.providerId} /{" "}
-												{selectedModel.modelId}
+                                        {selectedModel.providerName ??
+                                            selectedModel.providerId}{" "}
+                                        {selectedModel.modelId}
 											</span>
 										) : models?.length ? (
 											"Select model..."
@@ -324,11 +324,11 @@ print(response.json()["choices"][0]["message"]["content"])`;
 											<CommandEmpty>
 												No models found.
 											</CommandEmpty>
-											{groupedModels.map((group) => (
-												<CommandGroup
-													key={group.providerId}
-													heading={group.providerId}
-												>
+                                {groupedModels.map((group) => (
+                                    <CommandGroup
+                                        key={group.providerId}
+                                        heading={group.providerName}
+                                    >
 													{group.entries.map(
 														(entry) => (
 															<CommandItem
@@ -848,7 +848,6 @@ print(response.json()["choices"][0]["message"]["content"])`;
 												</div>
 											</div>
 										</div>
-										{/* TODO: Implement Tools (tools array and tool_choice UI) */}
 										<div className="space-y-2">
 											<div className="flex items-center justify-between">
 												<Label

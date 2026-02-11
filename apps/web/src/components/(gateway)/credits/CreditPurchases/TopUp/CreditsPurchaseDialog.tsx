@@ -53,9 +53,9 @@ export default function CreditsPurchaseDialog({
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	// CONFIG
-	// Allow freeform typing. Require a minimum of $0.50 and a maximum of $1,000,000
+	// Allow freeform typing. Require a minimum of $10 and a maximum of $1,000,000
 	// before enabling the pay button.
-	const MIN = 0.5;
+	const MIN = 10;
 	const MAX = 1000000;
 	const STEP = 0.01;
 	const FEE_RATE = tierInfo?.current?.feePct
@@ -73,7 +73,7 @@ export default function CreditsPurchaseDialog({
 	// Use a string for the raw input so the user can freely delete/enter
 	// characters (empty string, partial decimals, etc.). Parse it into a
 	// number when needed for validation and calculations.
-	const [rawAmount, setRawAmount] = useState<string>("5");
+	const [rawAmount, setRawAmount] = useState<string>("25");
 	const parsed = useMemo(() => {
 		const n = parseFloat(rawAmount as any);
 		return Number.isFinite(n) ? Math.round(n * 100) / 100 : NaN;
@@ -115,49 +115,49 @@ export default function CreditsPurchaseDialog({
 	const creditsDisplay = inputEmpty
 		? formatUSD(0)
 		: numericOutOfBounds
-		? "—"
+		? "--"
 		: formatUSD(parsed);
 	const feeDisplay = inputEmpty
 		? formatUSD(0)
 		: numericOutOfBounds
-		? "—"
+		? "--"
 		: formatUSD(fee);
 	const totalDisplay = inputEmpty
 		? formatUSD(0)
 		: numericOutOfBounds
-		? "—"
+		? "--"
 		: formatUSD(total);
 
-	const quickPicks = [5, 10, 25, 50];
+	const quickPicks = [10, 25, 50, 100];
 
 	// Default selection: only auto-select the Stripe default payment method.
-	// Do not auto-select the first saved method when there's no default.
 	const [selectedPm, setSelectedPm] = useState<string | "new" | null>(() => {
 		const defaultId = stripeInfo?.defaultPaymentMethodId ?? null;
-		// If there is a default, use it. Otherwise, if there are no saved
-		// methods, fall back to 'new'. If there are saved methods but no
-		// default, leave selection null so user chooses explicitly.
+		const firstMethodId = stripeInfo?.paymentMethods?.[0]?.id ?? null;
+		// Prefer default -> first saved method -> new card.
 		if (defaultId) return defaultId;
-		const hasMethods = (stripeInfo?.paymentMethods?.length ?? 0) > 0;
-		return hasMethods ? null : "new";
+		if (firstMethodId) return firstMethodId;
+		return "new";
 	});
 
-	// If stripeInfo indicates there are saved payment methods, ensure we
-	// select an existing method (default or first) only when no selection
-	// has been made (selectedPm === null). Do NOT override when the user
-	// explicitly chose "new".
+	// Keep selection sane when payment methods refresh.
 	useEffect(() => {
-		// Only run when stripeInfo changes. Auto-select a payment method
-		// only when the user hasn't made an explicit choice (selectedPm === null).
 		const defaultId = stripeInfo?.defaultPaymentMethodId ?? null;
+		const firstMethodId = stripeInfo?.paymentMethods?.[0]?.id ?? null;
 		const hasMethods = (stripeInfo?.paymentMethods?.length ?? 0) > 0;
 		if (selectedPm === null) {
 			if (defaultId) {
 				setSelectedPm(defaultId);
-			} else if (!defaultId && !hasMethods) {
-				// No saved methods at all -> default to 'new' so the UX shows the
-				// one-off/new-card flow.
+			} else if (firstMethodId) {
+				setSelectedPm(firstMethodId);
+			} else if (!hasMethods) {
 				setSelectedPm("new");
+			}
+		}
+		if (selectedPm && selectedPm !== "new" && hasMethods) {
+			const exists = (stripeInfo?.paymentMethods ?? []).some((m: any) => m.id === selectedPm);
+			if (!exists) {
+				setSelectedPm(defaultId ?? firstMethodId ?? "new");
 			}
 		}
 	}, [selectedPm, stripeInfo]);
@@ -183,6 +183,7 @@ export default function CreditsPurchaseDialog({
 				(window as any).__USER_ID__ || document?.body?.dataset?.userId;
 			const customerId =
 				stripeInfo?.customer?.id ?? wallet?.stripe_customer_id ?? null;
+			const teamId = wallet?.team_id ?? null;
 
 			if (selectedPm && selectedPm !== "new") {
 				const response = await ChargeSavedPayment({
@@ -193,6 +194,7 @@ export default function CreditsPurchaseDialog({
 					kind: mode,
 					user_id: clientUserId ?? null,
 					event_type: "top_up",
+					team_id: teamId,
 				} as any);
 
 				const { data, status, ok } = response;
@@ -266,7 +268,7 @@ export default function CreditsPurchaseDialog({
 				setIsLoading(false);
 				return; // don't fall through
 			}
-			// If we got here, user chose "new" or no saved PM available → go to Checkout:
+			// If we got here, user chose "new" or no saved PM available -> go to Checkout:
 			const response = await fetch("/api/checkout/create", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -278,6 +280,7 @@ export default function CreditsPurchaseDialog({
 					save_payment_method: mode === "pay_and_save",
 					customerId,
 					user_id: clientUserId ?? null,
+					team_id: teamId,
 				}),
 			});
 
@@ -322,7 +325,7 @@ export default function CreditsPurchaseDialog({
 						onChange={setSelectedPm}
 					/>
 
-					{/* 2. Pay mode — simplified: default is Save & Pay; show a small tucked-away One-off switch */}
+					{/* 2. Pay mode -- simplified: default is Save & Pay; show a small tucked-away One-off switch */}
 					{((stripeInfo?.paymentMethods?.length ?? 0) === 0 &&
 						!stripeInfo?.hasPaymentMethod) ||
 					selectedPm === "new" ? (
@@ -353,7 +356,7 @@ export default function CreditsPurchaseDialog({
 								<p className="text-xs text-zinc-600">
 									{mode === "pay_and_save"
 										? "Your card will be saved for faster top-ups next time."
-										: "We’ll process a one-off payment for this top-up only."}
+										: "We'll process a one-off payment for this top-up only."}
 								</p>
 							</section>
 						</>
@@ -431,7 +434,7 @@ export default function CreditsPurchaseDialog({
 						{/* Validation messages */}
 						{!Number.isNaN(parsed) && parsed < MIN ? (
 							<div className="text-sm text-red-600">
-								Must buy a minimum of $0.5 of credits
+								Must buy a minimum of $10 of credits
 							</div>
 						) : !Number.isNaN(parsed) && parsed > MAX ? (
 							<div className="text-sm text-red-600">
@@ -514,7 +517,7 @@ export default function CreditsPurchaseDialog({
 								{isLoading ? (
 									<span className="inline-flex items-center gap-2">
 										<Spinner className="h-4 w-4" />
-										Processing…
+										Processing...
 									</span>
 								) : selectedPm && selectedPm !== "new" ? (
 									(() => {
@@ -524,8 +527,8 @@ export default function CreditsPurchaseDialog({
 										const brand =
 											sel?.card?.brand ?? "Card";
 										const last4 =
-											sel?.card?.last4 ?? "••••";
-										return `Pay with ${brand} ••••${last4}`;
+											sel?.card?.last4 ?? "****";
+										return `Pay with ${brand} ****${last4}`;
 									})()
 								) : mode === "oneoff" ? (
 									"Continue to checkout"

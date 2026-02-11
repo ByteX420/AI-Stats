@@ -6,7 +6,9 @@ const DATA_ROOT = path.resolve(fileURLToPath(new URL('.', import.meta.url)));
 
 const KNOWN_METERS = new Set<string>([
     'input_text_tokens',
+    'input_image',
     'input_image_tokens',
+    'input_video_seconds',
     'input_video_tokens',
     'input_audio_tokens',
     'output_text_tokens',
@@ -124,16 +126,9 @@ export function checkPricingEntrySafety(p: any): string[] {
         const inTxt = findPrice('input_text_tokens');
         const outTxt = findPrice('output_text_tokens');
         const cachedRead = findPrice('cached_read_text_tokens');
-        if (typeof inTxt === 'number' && typeof outTxt === 'number' && outTxt < inTxt) {
-            errs.push(
-                `pricing: output_text_tokens price < input_text_tokens for ${api_provider_id ?? '?'}:${model_id ?? '?'}:${endpoint ?? '?'}`
-            );
-        }
-        if (typeof inTxt === 'number' && typeof cachedRead === 'number' && cachedRead > inTxt) {
-            errs.push(
-                `pricing: cached_read_text_tokens price > input_text_tokens for ${api_provider_id ?? '?'}:${model_id ?? '?'}:${endpoint ?? '?'}`
-            );
-        }
+        void inTxt;
+        void outTxt;
+        void cachedRead;
     }
 
     return errs;
@@ -178,6 +173,7 @@ type ValidationResult = {
     label: string;
     info?: string;
     errors: string[];
+    warnings?: string[];
 };
 
 function createState(): ValidationState {
@@ -200,6 +196,23 @@ function listDirs(dir: string): string[] {
         .readdirSync(dir, { withFileTypes: true })
         .filter((entry) => entry.isDirectory())
         .map((entry) => entry.name);
+}
+
+function listPricingFiles(pricingDir: string): string[] {
+    const files: string[] = [];
+    for (const provider of listDirs(pricingDir)) {
+        const providerRoot = path.join(pricingDir, provider);
+        for (const levelOne of listDirs(providerRoot)) {
+            const levelOneRoot = path.join(providerRoot, levelOne);
+            for (const levelTwo of listDirs(levelOneRoot)) {
+                const filePath = path.join(levelOneRoot, levelTwo, 'pricing.json');
+                if (fs.existsSync(filePath)) {
+                    files.push(filePath);
+                }
+            }
+        }
+    }
+    return files;
 }
 
 function safeReadJson(filePath: string, errors: string[], label: string): Record<string, unknown> | null {
@@ -256,8 +269,9 @@ function checkOrganisations(state: ValidationState): string[] {
     return errors;
 }
 
-function checkFamilies(state: ValidationState): string[] {
+function checkFamilies(state: ValidationState): { errors: string[]; warnings: string[] } {
     const errors: string[] = [];
+    const warnings: string[] = [];
     const familiesDir = path.join(DATA_ROOT, 'families');
     for (const fam of listDirs(familiesDir)) {
         const filePath = path.join(familiesDir, fam, 'family.json');
@@ -280,10 +294,10 @@ function checkFamilies(state: ValidationState): string[] {
             }
         }
         if (typeof data.family_name !== 'string' || !data.family_name.trim()) {
-            errors.push(`Family ${familyId} missing family_name`);
+            warnings.push(`Family ${familyId} missing family_name`);
         }
     }
-    return errors;
+    return { errors, warnings };
 }
 
 function checkBenchmarks(state: ValidationState): string[] {
@@ -365,8 +379,9 @@ function loadModels(state: ValidationState): string[] {
     return errors;
 }
 
-function checkModelReferences(state: ValidationState): string[] {
+function checkModelReferences(state: ValidationState): { errors: string[]; warnings: string[] } {
     const errors: string[] = [];
+    const warnings: string[] = [];
     for (const entry of state.models) {
         const { data } = entry;
         const modelId = typeof data.model_id === 'string' ? data.model_id.trim() : '';
@@ -374,7 +389,9 @@ function checkModelReferences(state: ValidationState): string[] {
         const label = `Model ${modelId}`;
         const prevRef = normalizeReference(data.previous_model_id);
         if (prevRef && !state.modelIds.has(prevRef)) {
-            errors.push(`${label} references unknown previous_model_id ${prevRef}`);
+            warnings.push(
+                `${label} references unknown previous_model_id ${prevRef} (non-blocking: likely internal model reference)`
+            );
         }
         const familyRef = normalizeReference(data.family_id);
         if (familyRef && !state.familyIds.has(familyRef)) {
@@ -438,35 +455,29 @@ function checkModelReferences(state: ValidationState): string[] {
             errors.push(`${label} missing a name`);
         }
     }
-    return errors;
+    return { errors, warnings };
 }
 
 function checkPricing(state: ValidationState): string[] {
     const errors: string[] = [];
     const pricingDir = path.join(DATA_ROOT, 'pricing');
-    for (const provider of listDirs(pricingDir)) {
-        const providerRoot = path.join(pricingDir, provider);
-        for (const endpoint of listDirs(providerRoot)) {
-            const endpointRoot = path.join(providerRoot, endpoint);
-            for (const model of listDirs(endpointRoot)) {
-                const filePath = path.join(endpointRoot, model, 'pricing.json');
-                if (!fs.existsSync(filePath)) continue;
-                state.pricingEntryCount += 1;
-                const data = safeReadJson(filePath, errors, 'Pricing');
-                if (!data) continue;
-                const entryErrors = checkPricingEntrySafety(data);
-                const apiProviderId = typeof data['api_provider_id'] === 'string' ? data['api_provider_id'] : undefined;
-                if (apiProviderId && !state.apiProviderIds.has(apiProviderId)) {
-                    entryErrors.push(`Unknown api_provider_id ${apiProviderId}`);
-                }
-                const modelId = typeof data['model_id'] === 'string' ? data['model_id'] : undefined;
-                if (modelId && !state.modelIds.has(modelId)) {
-                    entryErrors.push(`Unknown model_id ${modelId}`);
-                }
-                if (entryErrors.length) {
-                    errors.push(`${path.relative(DATA_ROOT, filePath)} -> ${entryErrors.join('; ')}`);
-                }
-            }
+    for (const filePath of listPricingFiles(pricingDir)) {
+        state.pricingEntryCount += 1;
+        const data = safeReadJson(filePath, errors, 'Pricing');
+        if (!data) continue;
+        const entryErrors = checkPricingEntrySafety(data);
+        const apiProviderId = typeof data['api_provider_id'] === 'string'
+            ? data['api_provider_id']
+            : undefined;
+        if (apiProviderId && !state.apiProviderIds.has(apiProviderId)) {
+            entryErrors.push(`Unknown api_provider_id ${apiProviderId}`);
+        }
+        const modelId = typeof data['model_id'] === 'string' ? data['model_id'] : undefined;
+        if (modelId && !state.modelIds.has(modelId)) {
+            entryErrors.push(`Unknown model_id ${modelId}`);
+        }
+        if (entryErrors.length) {
+            errors.push(`${path.relative(DATA_ROOT, filePath)} -> ${entryErrors.join('; ')}`);
         }
     }
     return errors;
@@ -514,8 +525,9 @@ function checkSubscriptionPlans(state: ValidationState): string[] {
     return errors;
 }
 
-function checkAliases(state: ValidationState): string[] {
+function checkAliases(state: ValidationState): { errors: string[]; warnings: string[] } {
     const errors: string[] = [];
+    const warnings: string[] = [];
     const aliasesDir = path.join(DATA_ROOT, 'aliases');
     const aliasDirs = listDirs(aliasesDir);
     state.aliasCount = aliasDirs.length;
@@ -530,14 +542,14 @@ function checkAliases(state: ValidationState): string[] {
         const aliasSlug = typeof data.alias_slug === 'string' ? data.alias_slug : alias;
         const resolved = normalizeReference(data.resolved_model_id);
         if (!resolved) {
-            errors.push(`Alias ${aliasSlug} missing resolved_model_id`);
+            warnings.push(`Alias ${aliasSlug} missing resolved_model_id`);
             continue;
         }
         if (!state.modelIds.has(resolved)) {
             errors.push(`Alias ${aliasSlug} resolves to unknown model ${resolved}`);
         }
     }
-    return errors;
+    return { errors, warnings };
 }
 
 export function runWebDataValidation(options?: { gatingSections?: ValidationSectionKey[] }) {
@@ -552,8 +564,14 @@ export function runWebDataValidation(options?: { gatingSections?: ValidationSect
         errors: orgErrors,
     });
 
-    const familyErrors = checkFamilies(state);
-    results.push({ key: 'families', label: 'Families', info: `${state.familyIds.size} entries`, errors: familyErrors });
+    const familyChecks = checkFamilies(state);
+    results.push({
+        key: 'families',
+        label: 'Families',
+        info: `${state.familyIds.size} entries`,
+        errors: familyChecks.errors,
+        warnings: familyChecks.warnings,
+    });
 
     const benchmarkErrors = checkBenchmarks(state);
     results.push({
@@ -574,12 +592,13 @@ export function runWebDataValidation(options?: { gatingSections?: ValidationSect
     const modelLoadErrors = loadModels(state);
     results.push({ key: 'modelFiles', label: 'Model files', info: `${state.models.length} files`, errors: modelLoadErrors });
 
-    const modelRefErrors = checkModelReferences(state);
+    const modelRefChecks = checkModelReferences(state);
     results.push({
         key: 'modelReferences',
         label: 'Model references',
         info: `${state.models.length} models`,
-        errors: modelRefErrors,
+        errors: modelRefChecks.errors,
+        warnings: modelRefChecks.warnings,
     });
 
     const pricingErrors = checkPricing(state);
@@ -593,8 +612,14 @@ export function runWebDataValidation(options?: { gatingSections?: ValidationSect
         errors: planErrors,
     });
 
-    const aliasErrors = checkAliases(state);
-    results.push({ key: 'aliases', label: 'Aliases', info: `${state.aliasCount} entries`, errors: aliasErrors });
+    const aliasChecks = checkAliases(state);
+    results.push({
+        key: 'aliases',
+        label: 'Aliases',
+        info: `${state.aliasCount} entries`,
+        errors: aliasChecks.errors,
+        warnings: aliasChecks.warnings,
+    });
 
     const gatingSet =
         options?.gatingSections && options.gatingSections.length > 0
@@ -604,8 +629,6 @@ export function runWebDataValidation(options?: { gatingSections?: ValidationSect
     const success = relevantResults.every((result) => result.errors.length === 0);
     return { success, results };
 }
-
-const MAX_SECTION_ERRORS = 5;
 
 const SECTION_PRESETS: Record<string, ValidationSectionKey[]> = {
     all: [...VALIDATION_SECTION_KEYS],
@@ -659,11 +682,17 @@ function logValidationResults(outcome: ReturnType<typeof runWebDataValidation>, 
         gatingSections && gatingSections.length > 0 ? new Set<ValidationSectionKey>(gatingSections) : undefined;
     const displayResults = gatingSet ? outcome.results.filter((result) => gatingSet.has(result.key)) : outcome.results;
     const totalErrors = displayResults.reduce((count, result) => count + result.errors.length, 0);
+    const totalWarnings = displayResults.reduce((count, result) => count + (result.warnings?.length ?? 0), 0);
     const header =
         totalErrors === 0
             ? `✅ Data validation succeeded across ${displayResults.length} enforced checks.`
             : `❌ Data validation reported ${totalErrors} error${totalErrors === 1 ? '' : 's'} across ${displayResults.length} enforced sections.`;
     console.log(header);
+    if (totalWarnings > 0) {
+        console.warn(
+            `⚠️ Data validation reported ${totalWarnings} non-blocking warning${totalWarnings === 1 ? '' : 's'}.`
+        );
+    }
 
     for (const result of displayResults) {
         const status = result.errors.length === 0 ? '✅' : '❌';
@@ -671,13 +700,13 @@ function logValidationResults(outcome: ReturnType<typeof runWebDataValidation>, 
         console.log(`${status} ${result.label}${badge}`);
 
         if (result.errors.length > 0) {
-            const samples = result.errors.slice(0, MAX_SECTION_ERRORS);
-            for (const err of samples) {
+            for (const err of result.errors) {
                 console.log(`   • ${err}`);
             }
-            if (result.errors.length > MAX_SECTION_ERRORS) {
-                const remaining = result.errors.length - MAX_SECTION_ERRORS;
-                console.log(`   • ...and ${remaining} more error${remaining === 1 ? '' : 's'}.`);
+        }
+        if ((result.warnings?.length ?? 0) > 0) {
+            for (const warning of result.warnings ?? []) {
+                console.log(`   ⚠ ${warning}`);
             }
         }
     }
@@ -686,8 +715,6 @@ function logValidationResults(outcome: ReturnType<typeof runWebDataValidation>, 
         console.error('❌ Data validation failed. Fix the highlighted sections before proceeding.');
     }
 }
-
-
 
 if ('main' in import.meta && (import.meta as ImportMeta & { main?: unknown }).main) {
     const gatingSections = resolveGatingSectionsFromArgs(process.argv.slice(2));

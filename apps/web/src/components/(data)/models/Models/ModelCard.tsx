@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ModelCard as ModelCardType } from "@/lib/fetchers/models/getAllModels";
 import { Logo } from "@/components/Logo";
+import { Badge } from "@/components/ui/badge";
 
 export function ModelCard({ model }: { model: ModelCardType }) {
 	const modelSlug = model.model_id;
@@ -21,7 +22,7 @@ export function ModelCard({ model }: { model: ModelCardType }) {
 			style={{ borderColor: model.organisation_colour || undefined }}
 			className={cn(
 				"h-full flex flex-col shadow-lg relative dark:shadow-zinc-900/25 dark:bg-zinc-950 transition-transform transform hover:scale-105 duration-200 ease-in-out",
-				model.organisation_colour && "border-2"
+				model.organisation_colour && "border-2",
 			)}
 		>
 			<CardContent className="flex flex-row items-center gap-3 pt-6">
@@ -41,25 +42,32 @@ export function ModelCard({ model }: { model: ModelCardType }) {
 						</div>
 					</div>
 				</Link>
-				<div className="flex flex-col min-w-0 flex-1">
-					<Tooltip delayDuration={500}>
-						<TooltipTrigger asChild>
-							<Link
-								href={`/models/${modelSlug}`}
-								className="font-semibold truncate leading-tight"
-							>
-								<span className="relative after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-0 after:bg-current after:transition-all after:duration-300 hover:after:w-full">
-									{model.name}
-								</span>
-							</Link>
-						</TooltipTrigger>
-						<TooltipContent align="center">
-							{modelSlug}
-						</TooltipContent>
-					</Tooltip>
+				<div className="flex flex-col min-w-0 flex-1 text-left">
+					<div className="flex items-center gap-2 min-w-0">
+						<Tooltip delayDuration={500}>
+							<TooltipTrigger asChild>
+								<Link
+									href={`/models/${modelSlug}`}
+									className="font-semibold truncate leading-tight text-left"
+								>
+									<span className="relative after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-0 after:bg-current after:transition-all after:duration-300 hover:after:w-full">
+										{model.name}
+									</span>
+								</Link>
+							</TooltipTrigger>
+							<TooltipContent align="center">
+								{modelSlug}
+							</TooltipContent>
+						</Tooltip>
+						{model.hidden ? (
+							<Badge variant="secondary" className="text-xs">
+								Hidden
+							</Badge>
+						) : null}
+					</div>
 					<Link
 						href={`/organisations/${model.organisation_id}`}
-						className="text-xs text-muted-foreground truncate flex items-center gap-1"
+						className="text-xs text-muted-foreground truncate flex items-center gap-1 text-left"
 					>
 						<span className="relative after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-current after:transition-all after:duration-300 hover:after:w-full">
 							{model.organisation_name}

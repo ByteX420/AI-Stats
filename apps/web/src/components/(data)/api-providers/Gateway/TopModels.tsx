@@ -9,6 +9,7 @@ import {
 	EmptyTitle,
 	EmptyDescription,
 } from "@/components/ui/empty";
+import { resolveIncludeHidden } from "@/lib/fetchers/models/visibility";
 
 function getRankIcon(rank: number) {
 	switch (rank) {
@@ -43,7 +44,8 @@ export default async function TopModels({
 	count?: number;
 	apiProviderId: string;
 }) {
-	const topModels = await getTopModelsCached(apiProviderId, count);
+	const includeHidden = await resolveIncludeHidden();
+	const topModels = await getTopModelsCached(apiProviderId, includeHidden, count);
 
 	return (
 		<div className="border border-gray-200 dark:border-gray-700 rounded-lg p-6">
@@ -72,7 +74,8 @@ export default async function TopModels({
 											className="inline-block text-foreground hover:text-primary"
 										>
 											<span className="relative after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-0 after:bg-current after:transition-all after:duration-300 hover:after:w-full">
-												{model.model_name || model.model_id}
+												{model.model_name ||
+													model.model_id}
 											</span>
 										</Link>
 									</h4>

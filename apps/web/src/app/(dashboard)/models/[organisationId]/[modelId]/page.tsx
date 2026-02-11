@@ -10,9 +10,9 @@ import {
 	type ModelRouteParams,
 } from "@/components/(data)/model/model-route-helpers";
 
-async function fetchModel(modelId: string) {
+async function fetchModel(modelId: string, includeHidden: boolean) {
 	try {
-		return await getModelOverviewCached(modelId);
+		return await getModelOverviewCached(modelId, includeHidden);
 	} catch (error) {
 		console.warn("[seo] failed to load model overview for metadata", {
 			modelId,
@@ -27,7 +27,8 @@ export async function generateMetadata(props: {
 }): Promise<Metadata> {
 	const params = await props.params;
 	const modelId = getModelIdFromParams(params);
-	const model = await fetchModel(modelId);
+	const includeHidden = false;
+	const model = await fetchModel(modelId, includeHidden);
 	const path = `/models/${modelId}`;
 	const imagePath = `/og/models/${modelId}`;
 
@@ -104,8 +105,9 @@ export default async function Page({
 }) {
 	const routeParams = await params;
 	const modelId = getModelIdFromParams(routeParams);
+	const includeHidden = false;
 
-	const model = await getModelOverviewCached(modelId);
+	const model = await getModelOverviewCached(modelId, includeHidden);
 
 	if (!model) {
 		return (
@@ -113,7 +115,7 @@ export default async function Page({
 				<div className="container mx-auto px-4 py-8">
 					<div className="rounded-lg border border-dashed p-6 md:p-8 text-center bg-muted/30">
 						<div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-							<span className="text-xl">🤖</span>
+							<span className="text-xl">M</span>
 						</div>
 						<p className="text-base font-medium">Model not found</p>
 						<p className="mt-1 text-sm text-muted-foreground">
@@ -164,3 +166,4 @@ export default async function Page({
 		</ModelDetailShell>
 	);
 }
+

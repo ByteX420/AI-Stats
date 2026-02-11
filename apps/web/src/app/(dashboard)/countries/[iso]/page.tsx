@@ -13,9 +13,9 @@ import {
 } from "@/lib/fetchers/countries/getCountrySummary";
 import { buildMetadata } from "@/lib/seo";
 
-async function loadCountry(isoInput: string) {
+async function loadCountry(isoInput: string, includeHidden: boolean) {
 	const iso = normaliseIso(isoInput);
-	return getCountrySummaryByIso(iso);
+	return getCountrySummaryByIso(iso, includeHidden);
 }
 
 export async function generateMetadata({
@@ -25,7 +25,8 @@ export async function generateMetadata({
 }): Promise<Metadata> {
 	const { iso: isoParamRaw } = await params;
 	const isoParam = normaliseIso(isoParamRaw);
-	const country = await loadCountry(isoParam);
+	const includeHidden = false;
+	const country = await loadCountry(isoParam, includeHidden);
 	const pathIso = isoParam.toLowerCase();
 	const path = `/countries/${pathIso}`;
 	const imagePath = `/og/countries/${pathIso}`;
@@ -71,7 +72,8 @@ export default async function CountryDetailPage({
 }) {
 	const { iso: isoParamRaw } = await params;
 	const iso = normaliseIso(isoParamRaw);
-	const country = await loadCountry(iso);
+	const includeHidden = false;
+	const country = await loadCountry(iso, includeHidden);
 
 	if (!country) {
 		return (

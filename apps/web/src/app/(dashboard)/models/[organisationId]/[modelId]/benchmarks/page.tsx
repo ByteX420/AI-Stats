@@ -13,9 +13,9 @@ import {
 	type ModelRouteParams,
 } from "@/components/(data)/model/model-route-helpers";
 
-async function fetchModel(modelId: string) {
+async function fetchModel(modelId: string, includeHidden: boolean) {
 	try {
-		return await getModelOverview(modelId);
+		return await getModelOverview(modelId, includeHidden);
 	} catch (error) {
 		console.warn("[seo] failed to load model overview for metadata", {
 			modelId,
@@ -30,7 +30,8 @@ export async function generateMetadata(props: {
 }): Promise<Metadata> {
 	const params = await props.params;
 	const modelId = getModelIdFromParams(params);
-	const model = await fetchModel(modelId);
+	const includeHidden = false;
+	const model = await fetchModel(modelId, includeHidden);
 	const path = `/models/${modelId}/benchmarks`;
 	const imagePath = `/og/models/${modelId}`;
 
@@ -77,16 +78,17 @@ export default async function Page({
 }) {
 	const routeParams = await params;
 	const modelId = getModelIdFromParams(routeParams);
+	const includeHidden = false;
 
 	const [highlightCards, benchmarkTableData, comparisonData] =
 		await Promise.all([
-			getModelBenchmarkHighlights(modelId),
-			getModelBenchmarkTableData(modelId),
-			getModelBenchmarkComparisonData(modelId),
+			getModelBenchmarkHighlights(modelId, includeHidden),
+			getModelBenchmarkTableData(modelId, includeHidden),
+			getModelBenchmarkComparisonData(modelId, includeHidden),
 		]);
 
 	return (
-		<ModelDetailShell modelId={modelId} tab="benchmarks">
+		<ModelDetailShell modelId={modelId} tab="benchmarks" includeHidden={includeHidden}>
 			<ModelBenchmarks
 				modelId={modelId}
 				benchmarkTableData={benchmarkTableData}

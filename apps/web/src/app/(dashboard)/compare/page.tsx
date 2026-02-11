@@ -52,14 +52,18 @@ const normalizeSelection = (value: string | string[] | undefined): string[] => {
 };
 
 export default async function Page({ searchParams }: PageProps = {}) {
-	const models: ExtendedModel[] = await loadCompareModelsCached();
-	const resolvedSearchParams = await searchParams;
+	const includeHidden = false;
+	const [models, resolvedSearchParams] = await Promise.all([
+		loadCompareModelsCached(includeHidden),
+		searchParams,
+	]);
+	const typedModels = models as ExtendedModel[];
 	const selection = normalizeSelection(resolvedSearchParams?.models).map(
 		decodeModelIdFromUrl
 	);
 
 	const lookup = new Map<string, string>();
-	models.forEach((model) => {
+	typedModels.forEach((model) => {
 		if (!model.id) return;
 		lookup.set(model.id, model.id);
 	});
@@ -69,7 +73,7 @@ export default async function Page({ searchParams }: PageProps = {}) {
 		.filter((value): value is string => Boolean(value));
 
 	const comparisonData = resolvedIds.length
-		? await getComparisonModelsCached(resolvedIds)
+		? await getComparisonModelsCached(resolvedIds, includeHidden)
 		: [];
 
 	console.log("[compare] Page selection", {
@@ -80,10 +84,10 @@ export default async function Page({ searchParams }: PageProps = {}) {
 
 	return (
 		<main className="flex min-h-screen flex-col">
-			<CompareMiniHeader models={models} />
+			<CompareMiniHeader models={typedModels} />
 			<section className="container mx-auto px-4 py-8">
 				<CompareDashboard
-					models={models}
+					models={typedModels}
 					comparisonData={comparisonData}
 				/>
 			</section>
