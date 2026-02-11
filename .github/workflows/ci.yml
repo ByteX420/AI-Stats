@@ -445,7 +445,6 @@ jobs:
                   apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
                   accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
                   workingDirectory: apps/api
-                  wranglerVersion: "4.45.0"
 
             # ---------- DOCS ----------
             - name: Docs (Mintlify deploy is handled by GitHub App)
