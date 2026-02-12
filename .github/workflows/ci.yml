@@ -461,6 +461,8 @@ jobs:
             - packages
             - apps
         if: github.ref == 'refs/heads/main'
+        env:
+            NPM_CONFIG_PROVENANCE: true
         permissions:
             contents: write
             pull-requests: write
@@ -486,6 +488,7 @@ jobs:
               uses: actions/setup-node@v6
               with:
                   node-version: ${{ env.NODE_VERSION }}
+                  registry-url: https://registry.npmjs.org
                   cache: pnpm
                   cache-dependency-path: pnpm-lock.yaml
 
@@ -497,22 +500,6 @@ jobs:
 
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
-
-            - name: Validate npm publish token
-              shell: bash
-              env:
-                  NPM_TOKEN: ${{ secrets.NPM_AUTOMATION_TOKEN || secrets.NPM_TOKEN }}
-              run: |
-                  set -euo pipefail
-                  if [ -z "${NPM_TOKEN:-}" ]; then
-                    echo "::error::Missing required npm publish secret. Set NPM_AUTOMATION_TOKEN (preferred) or NPM_TOKEN."
-                    exit 1
-                  fi
-                  npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}"
-                  if ! npm whoami --registry https://registry.npmjs.org > /dev/null 2>&1; then
-                    echo "::error::NPM token is invalid, expired, or missing npm publish permissions. Use an npm automation token with write access for @ai-stats."
-                    exit 1
-                  fi
 
             - name: Preflight publishable npm packages
               run: |
@@ -530,8 +517,6 @@ jobs:
                   commitMode: github-api
               env:
                   GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-                  NPM_TOKEN: ${{ secrets.NPM_AUTOMATION_TOKEN || secrets.NPM_TOKEN }}
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTOMATION_TOKEN || secrets.NPM_TOKEN }}
 
             - name: Set up Python (for PyPI publish)
               if: github.ref == 'refs/heads/main'
