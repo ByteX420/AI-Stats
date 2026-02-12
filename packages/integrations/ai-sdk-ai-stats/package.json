@@ -60,5 +60,8 @@
     "type": "git",
     "url": "https://github.com/ai-stats/ai-stats",
     "directory": "packages/integrations/ai-sdk-ai-stats"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
