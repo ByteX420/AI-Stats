@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,13 +26,23 @@ export function UsageInputs({
 	onMeterInputChange,
 	onRequestMultiplierChange,
 }: UsageInputsProps) {
+	const uniqueMeters = useMemo(() => {
+		const map = new Map<string, PricingMeter>();
+		for (const meter of meters) {
+			if (!map.has(meter.meter)) {
+				map.set(meter.meter, meter);
+			}
+		}
+		return Array.from(map.values());
+	}, [meters]);
+
 	return (
 		<Card>
 			<CardHeader>
 				<CardTitle>Usage Inputs</CardTitle>
 			</CardHeader>
 			<CardContent className="space-y-4">
-				{meters.map((meter) => {
+				{uniqueMeters.map((meter) => {
 					const inputConfig = getMeterInputConfig(meter.unit, meter.meter);
 					const derivedUnit = parseMeter(meter.meter).unit;
 					const unitLabel =

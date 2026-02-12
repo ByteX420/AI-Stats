@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
@@ -20,6 +21,16 @@ export function CostBreakdown({
 	meterInputs,
 	requestMultiplier,
 }: CostBreakdownProps) {
+	const uniqueMeters = useMemo(() => {
+		const map = new Map<string, PricingMeter>();
+		for (const meter of meters) {
+			if (!map.has(meter.meter)) {
+				map.set(meter.meter, meter);
+			}
+		}
+		return Array.from(map.values());
+	}, [meters]);
+
 	const calculateLineCost = (meter: PricingMeter): number => {
 		const inputValue = parseFloat(meterInputs[meter.meter] || "0");
 		if (inputValue === 0) return 0;
@@ -42,7 +53,7 @@ export function CostBreakdown({
 		return Math.ceil(multipliedValue / unitSize);
 	};
 
-	const lines = meters
+	const lines = uniqueMeters
 		.map((meter) => ({
 			meter,
 			lineCost: calculateLineCost(meter),

@@ -3,7 +3,18 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQueryState } from "nuqs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle2, Calculator, Zap, Shield, TrendingUp, Layers, DollarSign, Globe, Lock, RefreshCw } from "lucide-react";
+import {
+	CheckCircle2,
+	Calculator,
+	DollarSign,
+	Globe,
+	Layers,
+	Lock,
+	RefreshCw,
+	Shield,
+	TrendingUp,
+	Zap,
+} from "lucide-react";
 import {
 	Accordion,
 	AccordionContent,
@@ -16,7 +27,10 @@ import {
 	CostBreakdown,
 	PricingReference,
 } from "@/components/(tools)/pricing-calculator";
-import type { PricingMeter } from "@/components/(data)/model/pricing/pricingHelpers";
+import {
+	type PricingMeter,
+} from "@/components/(data)/model/pricing/pricingHelpers";
+const MAX_COMPARISON_MODELS = 4;
 
 type PricingModel = {
 	provider: string;
@@ -25,6 +39,15 @@ type PricingModel = {
 	display_name?: string;
 	pricing_plan?: string | null;
 	meters: PricingMeter[];
+};
+
+type ModelComparisonOption = {
+	key: string;
+	modelId: string;
+	displayName: string;
+	provider: string;
+	availablePricingPlans: string[];
+	metersByPlan: Record<string, PricingMeter[]>;
 };
 
 type PricingCalculatorProps = {
@@ -75,6 +98,8 @@ export default function PricingCalculator({
 
 	const [meterInputs, setMeterInputs] = useState<Record<string, string>>({});
 	const [requestMultiplier, setRequestMultiplier] = useState<number>(1);
+	const [comparisonModelKeys, setComparisonModelKeys] = useState<string[]>([]);
+	const [comparisonModelPlans, setComparisonModelPlans] = useState<Record<string, string>>({});
 
 	// Wrap setters in useCallback to prevent dependency warnings
 	const setSelectedProvider = useCallback(
@@ -228,8 +253,16 @@ export default function PricingCalculator({
 	]);
 
 	const handleModelSelect = (modelId: string) => {
+		const nextModel = availableModels.find((model) => model.modelId === modelId);
+		const nextEndpoints = nextModel
+			? Array.from(nextModel.endpoints.keys()).sort()
+			: [];
+		const nextEndpoint = nextEndpoints.includes(selectedEndpoint)
+			? selectedEndpoint
+			: nextEndpoints[0] || "";
+
 		setSelectedModelId(modelId);
-		setSelectedEndpoint("");
+		setSelectedEndpoint(nextEndpoint);
 		setSelectedProvider("");
 		setSelectedPricingPlan("");
 		setMeterInputs({});
@@ -246,102 +279,264 @@ export default function PricingCalculator({
 		setRequestMultiplier(value);
 	};
 
+	const comparisonCandidates = useMemo<ModelComparisonOption[]>(() => {
+		if (!selectedEndpoint) {
+			return [];
+		}
+		const grouped = new Map<
+			string,
+			{
+				modelId: string;
+				displayName: string;
+				provider: string;
+				planMap: Map<string, PricingMeter[]>;
+			}
+		>();
+
+		for (const row of models) {
+			if (row.endpoint !== selectedEndpoint) {
+				continue;
+			}
+			const key = `${row.model}::${row.provider}`;
+			if (!grouped.has(key)) {
+				grouped.set(key, {
+					modelId: row.model,
+					displayName: row.display_name || row.model,
+					provider: row.provider,
+					planMap: new Map<string, PricingMeter[]>(),
+				});
+			}
+			const group = grouped.get(key)!;
+			group.planMap.set(row.pricing_plan || "standard", row.meters);
+		}
+
+		return Array.from(grouped.entries())
+			.map(([key, group]) => {
+				const availablePricingPlans = Array.from(group.planMap.keys()).sort((a, b) => {
+					if (a === "standard") return -1;
+					if (b === "standard") return 1;
+					return a.localeCompare(b);
+				});
+				const metersByPlan = Object.fromEntries(group.planMap.entries());
+				return {
+				key,
+				modelId: group.modelId,
+				displayName: group.displayName,
+				provider: group.provider,
+				availablePricingPlans,
+				metersByPlan,
+				};
+			})
+			.sort((a, b) => {
+				const byName = a.displayName.localeCompare(b.displayName);
+				if (byName !== 0) return byName;
+				return a.provider.localeCompare(b.provider);
+			});
+	}, [models, selectedEndpoint]);
+
+	const comparisonModelMap = useMemo(() => {
+		return new Map(comparisonCandidates.map((model) => [model.key, model]));
+	}, [comparisonCandidates]);
+
+	useEffect(() => {
+		setComparisonModelKeys((prev) => {
+			const valid = prev.filter((key) => comparisonModelMap.has(key));
+			const next = valid.slice(0, MAX_COMPARISON_MODELS);
+			if (
+				prev.length === next.length &&
+				prev.every((value, index) => value === next[index])
+			) {
+				return prev;
+			}
+			return next;
+		});
+	}, [comparisonModelMap]);
+
+	useEffect(() => {
+		setComparisonModelPlans((prev) => {
+			const next: Record<string, string> = {};
+			for (const key of comparisonModelKeys) {
+				const candidate = comparisonModelMap.get(key);
+				if (!candidate) continue;
+				if (prev[key] && candidate.availablePricingPlans.includes(prev[key])) {
+					next[key] = prev[key];
+					continue;
+				}
+				next[key] = candidate.availablePricingPlans.includes("standard")
+					? "standard"
+					: candidate.availablePricingPlans[0] || "standard";
+			}
+
+			const prevKeys = Object.keys(prev).sort();
+			const nextKeys = Object.keys(next).sort();
+			if (
+				prevKeys.length === nextKeys.length &&
+				prevKeys.every((key, idx) => key === nextKeys[idx] && prev[key] === next[key])
+			) {
+				return prev;
+			}
+			return next;
+		});
+	}, [comparisonModelKeys, comparisonModelMap]);
+
+	const toggleComparisonModel = useCallback(
+		(modelKey: string) => {
+			if (!comparisonModelMap.has(modelKey)) {
+				return;
+			}
+			setComparisonModelKeys((prev) => {
+				if (prev.includes(modelKey)) {
+					return prev.filter((key) => key !== modelKey);
+				}
+				if (prev.length >= MAX_COMPARISON_MODELS) {
+					return prev;
+				}
+				return [...prev, modelKey];
+			});
+		},
+		[comparisonModelMap]
+	);
+
+	const setComparisonModelPlan = useCallback(
+		(modelKey: string, plan: string) => {
+			setComparisonModelPlans((prev) => {
+				if (prev[modelKey] === plan) {
+					return prev;
+				}
+				return { ...prev, [modelKey]: plan };
+			});
+		},
+		[]
+	);
+
+	const selectedComparisonModels = useMemo(() => {
+		return comparisonModelKeys
+			.map((modelKey) => comparisonModelMap.get(modelKey))
+			.filter((model): model is ModelComparisonOption => Boolean(model))
+			.map((model) => ({
+				key: model.key,
+				label: model.displayName,
+				modelId: model.modelId,
+				provider: model.provider,
+				pricingPlan:
+					comparisonModelPlans[model.key] && model.availablePricingPlans.includes(comparisonModelPlans[model.key])
+						? comparisonModelPlans[model.key]
+						: model.availablePricingPlans.includes("standard")
+							? "standard"
+							: model.availablePricingPlans[0] || "standard",
+				availablePricingPlans: model.availablePricingPlans,
+				meters:
+					model.metersByPlan[
+						comparisonModelPlans[model.key] && model.availablePricingPlans.includes(comparisonModelPlans[model.key])
+							? comparisonModelPlans[model.key]
+							: model.availablePricingPlans.includes("standard")
+								? "standard"
+								: model.availablePricingPlans[0] || "standard"
+					] || [],
+			}));
+	}, [comparisonModelKeys, comparisonModelMap, comparisonModelPlans]);
+
 	return (
-		<div className="container mx-auto py-8 px-4">
-			{/* SEO-Optimized Header Section */}
-			<header className="mb-8 container">
-				<h1 className="text-4xl md:text-5xl font-bold mb-4">
-					AI Pricing Calculator - Compare {roundedTotalModelsCount}+
-					Models
-				</h1>
-				<p className="text-lg md:text-xl text-muted-foreground mb-4">
-					Free AI model cost calculator for GPT-5, Claude, Gemini,
-					DeepSeek, and {roundedTotalModelsCount}+ models from{" "}
-					{providersCount}+ providers. Calculate token costs, compare
-					API pricing, and estimate budgets for your AI deployments.
-				</p>
-				<div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-					<span className="inline-flex items-center gap-1">
-						<CheckCircle2 className="w-4 h-4 text-green-500" />
-						Updated Daily
-					</span>
-					<span className="inline-flex items-center gap-1">
-						<CheckCircle2 className="w-4 h-4 text-green-500" />
-						OpenAI, Anthropic, Google, AWS, Azure
-					</span>
-					<span className="inline-flex items-center gap-1">
-						<CheckCircle2 className="w-4 h-4 text-green-500" />
-						Input, Output &amp; Cached Tokens
-					</span>
-					<span className="inline-flex items-center gap-1">
-						<CheckCircle2 className="w-4 h-4 text-green-500" />
-						Batch &amp; Real-time Pricing
-					</span>
+		<div className="mx-auto w-full max-w-[1500px] px-4 py-8">
+			<header className="mb-6 rounded-2xl border bg-gradient-to-br from-background to-muted/20 p-4 md:p-6">
+				<div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+					<div className="space-y-2 max-w-4xl">
+						<h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
+							AI Pricing Calculator
+						</h1>
+						<p className="text-sm md:text-base text-muted-foreground">
+							Compare {roundedTotalModelsCount}+ models across {providersCount}+ providers, estimate cost by usage,
+							and compare multiple model options side by side with the same inputs.
+						</p>
+					</div>
+					<div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+						<span className="inline-flex items-center gap-1 rounded-full border bg-background/70 px-2.5 py-1">
+							<CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+							Updated Daily
+						</span>
+						<span className="inline-flex items-center gap-1 rounded-full border bg-background/70 px-2.5 py-1">
+							<CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+							Provider + plan aware
+						</span>
+						<span className="inline-flex items-center gap-1 rounded-full border bg-background/70 px-2.5 py-1">
+							<CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+							Input, output, cached tokens
+						</span>
+					</div>
 				</div>
 			</header>
 
-			<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-				<div className="space-y-6">
-					<ModelSelector
-						models={models}
-						selectedModelId={selectedModelId || ""}
-						selectedEndpoint={selectedEndpoint || ""}
-						availableEndpoints={availableEndpoints}
-						onModelSelect={handleModelSelect}
-						onEndpointSelect={(ep) => {
-							setSelectedEndpoint(ep);
-							setSelectedProvider("");
-							setSelectedPricingPlan("");
-						}}
-					/>
-
-					{selectedModelData && (
-						<UsageInputs
-							meters={selectedModelData.meters}
-							meterInputs={meterInputs}
-							requestMultiplier={requestMultiplier}
-							onMeterInputChange={handleMeterInputChange}
-							onRequestMultiplierChange={
-								handleRequestMultiplierChange
-							}
+			<div className="space-y-5">
+				<div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+					<div className="xl:col-span-7 [&>*]:h-full">
+						<ModelSelector
+							models={models}
+							selectedModelId={selectedModelId || ""}
+							selectedEndpoint={selectedEndpoint || ""}
+							availableEndpoints={availableEndpoints}
+							comparisonCandidates={comparisonCandidates.map((candidate) => ({
+								key: candidate.key,
+								displayName: candidate.displayName,
+								provider: candidate.provider,
+							}))}
+							comparisonModelKeys={comparisonModelKeys}
+							maxComparisonModels={MAX_COMPARISON_MODELS}
+							onModelSelect={handleModelSelect}
+							onEndpointSelect={(ep) => {
+								setSelectedEndpoint(ep);
+								setSelectedProvider("");
+								setSelectedPricingPlan("");
+							}}
+							onToggleComparisonModel={toggleComparisonModel}
 						/>
-					)}
-				</div>
-
-				<div className="space-y-6">
-					{selectedModelData && (
-						<>
-							<CostBreakdown
+					</div>
+					<div className="xl:col-span-5 [&>*]:h-full">
+						{selectedModelData ? (
+							<UsageInputs
 								meters={selectedModelData.meters}
 								meterInputs={meterInputs}
 								requestMultiplier={requestMultiplier}
+								onMeterInputChange={handleMeterInputChange}
+								onRequestMultiplierChange={
+									handleRequestMultiplierChange
+								}
 							/>
-							<PricingReference
-								meters={selectedModelData.meters}
-								pricingPlan={selectedModelData.pricing_plan}
-								availableProviders={availableProviders.map(
-									(p) => ({ provider: p, displayName: p })
-								)}
-								availablePricingPlans={availablePricingPlans}
-								selectedProvider={effectiveProvider}
-								selectedPricingPlan={effectivePricingPlan}
-								onProviderSelect={setSelectedProvider}
-								onPricingPlanSelect={setSelectedPricingPlan}
-							/>
-						</>
-					)}
-
-					{!selectedModelData && (
-						<Card>
-							<CardContent className="text-center py-12">
-								<p className="text-muted-foreground">
-									Select a model and endpoint to view pricing
-									information and calculate costs.
-								</p>
-							</CardContent>
-						</Card>
-					)}
+						) : (
+							<Card>
+								<CardContent className="text-center py-12">
+									<p className="text-muted-foreground">
+										Select a model and endpoint to configure
+										usage inputs.
+									</p>
+								</CardContent>
+							</Card>
+						)}
+					</div>
 				</div>
+
+				{selectedModelData ? (
+					<>
+						<PricingReference
+							meters={selectedModelData.meters}
+							pricingPlan={selectedModelData.pricing_plan}
+							availableProviders={availableProviders.map(
+								(p) => ({ provider: p, displayName: p })
+							)}
+							availablePricingPlans={availablePricingPlans}
+							selectedProvider={effectiveProvider}
+							selectedPricingPlan={effectivePricingPlan}
+							onProviderSelect={setSelectedProvider}
+							onPricingPlanSelect={setSelectedPricingPlan}
+							comparisonModels={selectedComparisonModels}
+							onComparisonModelPricingPlanSelect={setComparisonModelPlan}
+						/>
+						<CostBreakdown
+							meters={selectedModelData.meters}
+							meterInputs={meterInputs}
+							requestMultiplier={requestMultiplier}
+						/>
+					</>
+				) : null}
 			</div>
 
 			{/* SEO Content Section */}
