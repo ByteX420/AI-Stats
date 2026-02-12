@@ -1,18 +1,12 @@
-// Purpose: Executor for openai / image.generate.
+// Purpose: Executor for openai / image.edit.
 // Why: Isolates provider-specific behavior per capability.
-// How: Maps IR image generation requests to OpenAI Image Generation API.
+// How: Maps IR image edit requests to OpenAI Image Edit API.
 
-// OpenAI Image Generation
-// Documentation: https://platform.openai.com/docs/api-reference/images/create
-// Current Models: gpt-image-1.5, gpt-image-1, gpt-image-1-mini
-// Legacy Models (Deprecated May 12, 2026): dall-e-2, dall-e-3
-//
-// gpt-image models support:
-// - Sizes: 1024x1024, 1536x1024, 1024x1536, "auto"
-// - Quality: low (~$0.02), medium (~$0.07), high (~$0.19), auto
-// - Formats: png, jpeg, webp
-// - Transparent backgrounds (png/webp only)
-// - Output compression (jpeg/webp only)
+// OpenAI Image Edit
+// Documentation: https://platform.openai.com/docs/api-reference/images/createEdit
+// Models: dall-e-2 (Deprecated May 12, 2026)
+// Note: Image editing is currently only supported by DALL-E 2.
+//       gpt-image models do not support image editing yet.
 
 import type { IRImageGenerationRequest, IRImageGenerationResponse } from "@core/ir";
 import type { ExecutorExecuteArgs, ExecutorResult } from "@executors/types";
@@ -25,56 +19,35 @@ export async function execute(args: ExecutorExecuteArgs): Promise<ExecutorResult
 	const keyInfo = await resolveOpenAICompatKey(args as any);
 	const key = keyInfo.key;
 
-	// Build OpenAI image generation request
-	const model = args.providerModelSlug || ir.model || "gpt-image-1.5";
-	const requestBody: any = {
-		model,
-		prompt: ir.prompt,
-	};
+	// Build OpenAI image edit request (multipart/form-data)
+	const formData = new FormData();
+	formData.append("model", args.providerModelSlug || ir.model || "dall-e-2");
+	formData.append("prompt", ir.prompt);
 
-	const isGptImage = model.startsWith("gpt-image");
+	// Handle image and mask inputs
 	const rawRequest = (ir.rawRequest ?? {}) as Record<string, any>;
-
-	// Common parameters (all models)
-	if (ir.size) requestBody.size = ir.size;
-	if (typeof ir.n === "number") requestBody.n = ir.n;
-	if (ir.quality) requestBody.quality = ir.quality;
-	if (ir.responseFormat) requestBody.response_format = ir.responseFormat;
-	if (ir.userId) requestBody.user = ir.userId;
-
-	// DALL-E specific parameters (legacy models)
-	if (!isGptImage && ir.style) {
-		requestBody.style = ir.style;
+	if (ir.image || rawRequest.image) {
+		formData.append("image", ir.image || rawRequest.image);
+	}
+	if (ir.mask || rawRequest.mask) {
+		formData.append("mask", ir.mask || rawRequest.mask);
 	}
 
-	// gpt-image specific parameters (new models)
-	if (isGptImage) {
-		// output_format: png, jpeg, webp (default: png)
-		if (rawRequest.output_format) {
-			requestBody.output_format = rawRequest.output_format;
-		}
-
-		// background: transparent (only with png/webp)
-		if (rawRequest.background === "transparent") {
-			requestBody.background = "transparent";
-		}
-
-		// output_compression: 0-100 (only with jpeg/webp)
-		if (typeof rawRequest.output_compression === "number") {
-			requestBody.output_compression = rawRequest.output_compression;
-		}
-	}
+	if (ir.size) formData.append("size", ir.size);
+	if (typeof ir.n === "number") formData.append("n", String(ir.n));
+	if (ir.userId || rawRequest.user) formData.append("user", ir.userId || rawRequest.user);
 
 	const captureRequest = Boolean(args.meta.returnUpstreamRequest || args.meta.echoUpstreamRequest);
-	const mappedRequest = captureRequest ? JSON.stringify(requestBody) : undefined;
+	const mappedRequest = captureRequest ? "[multipart/form-data]" : undefined;
 
-	const res = await fetch(openAICompatUrl(args.providerId, "/images/generations"), {
+	const headers = openAICompatHeaders(args.providerId, key);
+	// Remove Content-Type to let browser set it with boundary for multipart
+	delete (headers as any)["Content-Type"];
+
+	const res = await fetch(openAICompatUrl(args.providerId, "/images/edits"), {
 		method: "POST",
-		headers: {
-			...openAICompatHeaders(args.providerId, key),
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify(requestBody),
+		headers,
+		body: formData,
 	});
 
 	const json = await res.clone().json().catch(() => null);
@@ -104,7 +77,7 @@ export async function execute(args: ExecutorExecuteArgs): Promise<ExecutorResult
 		id: args.requestId,
 		nativeId: json?.id || res.headers.get("x-request-id") || undefined,
 		created: Number.isFinite(created) ? created : Math.floor(Date.now() / 1000),
-		model: requestBody.model,
+		model: args.providerModelSlug || ir.model || "dall-e-2",
 		provider: args.providerId,
 		data: Array.isArray(json?.data)
 			? json.data.map((item: any) => ({

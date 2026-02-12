@@ -1,18 +1,14 @@
-// Purpose: Executor for openai / image.generate.
+// Purpose: Executor for x-ai / image.generate.
 // Why: Isolates provider-specific behavior per capability.
-// How: Maps IR image generation requests to OpenAI Image Generation API.
+// How: Maps IR image generation requests to X.AI Grok Imagine API.
 
-// OpenAI Image Generation
-// Documentation: https://platform.openai.com/docs/api-reference/images/create
-// Current Models: gpt-image-1.5, gpt-image-1, gpt-image-1-mini
-// Legacy Models (Deprecated May 12, 2026): dall-e-2, dall-e-3
+// X.AI Grok Imagine - Image Generation
+// Documentation: https://docs.x.ai/docs/api/image-generation
+// Models: grok-imagine-1 (and variants)
 //
-// gpt-image models support:
-// - Sizes: 1024x1024, 1536x1024, 1024x1536, "auto"
-// - Quality: low (~$0.02), medium (~$0.07), high (~$0.19), auto
-// - Formats: png, jpeg, webp
-// - Transparent backgrounds (png/webp only)
-// - Output compression (jpeg/webp only)
+// Key Difference from OpenAI:
+// - Uses application/json for ALL operations (including image editing)
+// - No multipart/form-data support for image editing
 
 import type { IRImageGenerationRequest, IRImageGenerationResponse } from "@core/ir";
 import type { ExecutorExecuteArgs, ExecutorResult } from "@executors/types";
@@ -25,45 +21,23 @@ export async function execute(args: ExecutorExecuteArgs): Promise<ExecutorResult
 	const keyInfo = await resolveOpenAICompatKey(args as any);
 	const key = keyInfo.key;
 
-	// Build OpenAI image generation request
-	const model = args.providerModelSlug || ir.model || "gpt-image-1.5";
+	// Build X.AI image generation request (JSON format, not multipart)
+	const model = args.providerModelSlug || ir.model || "grok-imagine-1";
 	const requestBody: any = {
 		model,
 		prompt: ir.prompt,
 	};
 
-	const isGptImage = model.startsWith("gpt-image");
-	const rawRequest = (ir.rawRequest ?? {}) as Record<string, any>;
-
-	// Common parameters (all models)
+	// Common parameters
 	if (ir.size) requestBody.size = ir.size;
 	if (typeof ir.n === "number") requestBody.n = ir.n;
 	if (ir.quality) requestBody.quality = ir.quality;
 	if (ir.responseFormat) requestBody.response_format = ir.responseFormat;
 	if (ir.userId) requestBody.user = ir.userId;
 
-	// DALL-E specific parameters (legacy models)
-	if (!isGptImage && ir.style) {
-		requestBody.style = ir.style;
-	}
-
-	// gpt-image specific parameters (new models)
-	if (isGptImage) {
-		// output_format: png, jpeg, webp (default: png)
-		if (rawRequest.output_format) {
-			requestBody.output_format = rawRequest.output_format;
-		}
-
-		// background: transparent (only with png/webp)
-		if (rawRequest.background === "transparent") {
-			requestBody.background = "transparent";
-		}
-
-		// output_compression: 0-100 (only with jpeg/webp)
-		if (typeof rawRequest.output_compression === "number") {
-			requestBody.output_compression = rawRequest.output_compression;
-		}
-	}
+	// X.AI specific parameters (if any)
+	const rawRequest = (ir.rawRequest ?? {}) as Record<string, any>;
+	if (rawRequest.style) requestBody.style = rawRequest.style;
 
 	const captureRequest = Boolean(args.meta.returnUpstreamRequest || args.meta.echoUpstreamRequest);
 	const mappedRequest = captureRequest ? JSON.stringify(requestBody) : undefined;
@@ -104,7 +78,7 @@ export async function execute(args: ExecutorExecuteArgs): Promise<ExecutorResult
 		id: args.requestId,
 		nativeId: json?.id || res.headers.get("x-request-id") || undefined,
 		created: Number.isFinite(created) ? created : Math.floor(Date.now() / 1000),
-		model: requestBody.model,
+		model,
 		provider: args.providerId,
 		data: Array.isArray(json?.data)
 			? json.data.map((item: any) => ({
@@ -122,7 +96,6 @@ export async function execute(args: ExecutorExecuteArgs): Promise<ExecutorResult
 	};
 
 	const usageMeters = {
-		requests: 1,
 		total_tokens: 0,
 	};
 
@@ -134,12 +107,10 @@ export async function execute(args: ExecutorExecuteArgs): Promise<ExecutorResult
 		finish_reason: null,
 	};
 
-	if (usageMeters) {
-		const priced = computeBill(usageMeters, args.pricingCard);
-		bill.cost_cents = priced.pricing.total_cents;
-		bill.currency = priced.pricing.currency;
-		bill.usage = priced;
-	}
+	const priced = computeBill(usageMeters, args.pricingCard);
+	bill.cost_cents = priced.pricing.total_cents;
+	bill.currency = priced.pricing.currency;
+	bill.usage = priced;
 
 	return {
 		kind: "completed",

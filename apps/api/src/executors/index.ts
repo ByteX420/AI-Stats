@@ -37,16 +37,42 @@ import { executor as moonshotText } from "./moonshotai/text-generate";
 import { executor as aionLabsText } from "./aion-labs/text-generate";
 import { executor as amazonBedrockText } from "./amazon-bedrock/text-generate";
 import { executor as googleVertexText } from "./google-vertex/text-generate";
+import { executor as cohereText } from "./cohere/text-generate";
+import { executor as perplexityText } from "./perplexity/text-generate";
+import { executor as togetherText } from "./together/text-generate";
+import { executor as groqText } from "./groq/text-generate";
+import { executor as fireworksText } from "./fireworks/text-generate";
+import { executor as cerebrasText } from "./cerebras/text-generate";
+import { executor as deepinfraText } from "./deepinfra/text-generate";
+import { executor as basetenText } from "./baseten/text-generate";
+import { executor as novitaaiText } from "./novitaai/text-generate";
+import { executor as liquidAiText } from "./liquid-ai/text-generate";
+import { executor as ai21Text } from "./ai21/text-generate";
 
 // Embeddings executors (migrated providers only)
 import { executor as openaiEmbeddings } from "./openai/embeddings";
 import { executor as googleEmbeddings } from "./google/embeddings";
 import { executor as googleAiStudioEmbeddings } from "./google-ai-studio/embeddings";
+import { executor as cohereEmbeddings } from "./cohere/embeddings";
+import { executor as mistralEmbeddings } from "./mistral/embeddings";
+import { executor as togetherEmbeddings } from "./together/embeddings";
+import { executor as fireworksEmbeddings } from "./fireworks/embeddings";
 
 // Moderations executors (migrated providers only)
 import { executor as openaiModerations } from "./openai/moderations";
 
 import { executor as openaiVideo } from "./openai/video-generate";
+
+// Audio executors
+import { executor as openaiAudioSpeech } from "./openai/audio-speech";
+import { executor as openaiAudioTranscription } from "./openai/audio-transcription";
+import { executor as openaiAudioTranslation } from "./openai/audio-translation";
+
+// Image executors
+import { executor as openaiImageGenerate } from "./openai/image-generate";
+import { executor as openaiImageEdit } from "./openai/image-edit";
+import { executor as xAiImageGenerate } from "./x-ai/image-generate";
+import { executor as xAiImageEdit } from "./x-ai/image-edit";
 import { nonTextAdapterExecutor } from "./_shared/non-text/adapter-bridge";
 
 // Video generation executors
@@ -140,6 +166,11 @@ export const EXECUTORS_BY_PROVIDER: Record<string, ProviderCapabilityMap> = {
 		embeddings: openaiEmbeddings,
 		moderations: openaiModerations,
 		"video.generate": openaiVideo,
+		"audio.speech": openaiAudioSpeech,
+		"audio.transcription": openaiAudioTranscription,
+		"audio.translations": openaiAudioTranslation,
+		"image.generate": openaiImageGenerate,
+		"image.edit": openaiImageEdit,
 	},
 	anthropic: {
 		"text.generate": anthropicText,
@@ -157,8 +188,16 @@ export const EXECUTORS_BY_PROVIDER: Record<string, ProviderCapabilityMap> = {
 		embeddings: googleAiStudioEmbeddings,
 		"video.generate": googleVideo,
 	},
-	"x-ai": { "text.generate": xAiText },
-	xai: { "text.generate": xAiText },
+	"x-ai": {
+		"text.generate": xAiText,
+		"image.generate": xAiImageGenerate,
+		"image.edit": xAiImageEdit,
+	},
+	xai: {
+		"text.generate": xAiText,
+		"image.generate": xAiImageGenerate,
+		"image.edit": xAiImageEdit,
+	},
 	deepseek: { "text.generate": deepseekText },
 	minimax: { "text.generate": minimaxText },
 	"minimax-lightning": { "text.generate": minimaxText },
@@ -167,7 +206,7 @@ export const EXECUTORS_BY_PROVIDER: Record<string, ProviderCapabilityMap> = {
 	"z-ai": { "text.generate": zAiText },
 	zai: { "text.generate": zaiText },
 	xiaomi: { "text.generate": xiaomiText },
-	mistral: { "text.generate": mistralText },
+	mistral: { "text.generate": mistralText, embeddings: mistralEmbeddings },
 	"moonshot-ai": { "text.generate": moonshotText },
 	"moonshot-ai-turbo": { "text.generate": moonshotText },
 	"aion-labs": { "text.generate": aionLabsText },
@@ -180,6 +219,19 @@ export const EXECUTORS_BY_PROVIDER: Record<string, ProviderCapabilityMap> = {
 	"fal-ai": {
 		"video.generate": falVideo,
 	},
+	cohere: { "text.generate": cohereText, embeddings: cohereEmbeddings },
+	perplexity: { "text.generate": perplexityText },
+	together: { "text.generate": togetherText, embeddings: togetherEmbeddings },
+	"together-ai": { "text.generate": togetherText, embeddings: togetherEmbeddings },
+	groq: { "text.generate": groqText },
+	fireworks: { "text.generate": fireworksText, embeddings: fireworksEmbeddings },
+	"fireworks-ai": { "text.generate": fireworksText, embeddings: fireworksEmbeddings },
+	cerebras: { "text.generate": cerebrasText },
+	deepinfra: { "text.generate": deepinfraText },
+	baseten: { "text.generate": basetenText },
+	novitaai: { "text.generate": novitaaiText },
+	"liquid-ai": { "text.generate": liquidAiText },
+	ai21: { "text.generate": ai21Text },
 };
 
 export function resolveProviderExecutor(providerId: string, capability: string): ProviderExecutor | null {

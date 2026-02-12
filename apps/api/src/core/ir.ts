@@ -140,7 +140,7 @@ export type IRToolChoice =
  * Reasoning configuration (for o1-style and MiniMax-style reasoning)
  */
 export type IRReasoning = {
-	effort?: "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
+	effort?: "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 	summary?: "auto" | "concise" | "detailed";
 	enabled?: boolean;
 	maxTokens?: number;
@@ -153,6 +153,53 @@ export type IRResponseFormat =
 	| { type: "text" }
 	| { type: "json_object"; schema?: Record<string, any> }
 	| { type: "json_schema"; schema: Record<string, any>; name?: string; strict?: boolean };
+
+/**
+ * Image generation configuration for multimodal text.generate requests
+ * Enables models to generate images alongside text in text.generate responses
+ *
+ * Supported models:
+ * - gemini-2.5-flash-image (Nano Banana): supports aspect_ratio (fixed resolution per aspect, 1290 tokens)
+ * - gemini-3-pro-image-preview (Nano Banana Pro): supports aspect_ratio + resolution (1K/2K/4K)
+ */
+export type IRImageConfig = {
+	/**
+	 * Aspect ratio for generated images
+	 * Supported by: BOTH gemini-2.5-flash-image AND gemini-3-pro-image-preview
+	 * Options: "1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"
+	 * Default: "1:1"
+	 *
+	 * Resolutions by model:
+	 * - gemini-2.5-flash-image: Fixed resolution per aspect (e.g., 1:1 = 1024x1024, 16:9 = 1344x768)
+	 * - gemini-3-pro-image-preview: Configurable via resolution parameter (1K/2K/4K)
+	 */
+	aspectRatio?: string;
+	/**
+	 * Output image resolution
+	 * Supported by: gemini-3-pro-image-preview ONLY (not supported by gemini-2.5-flash-image)
+	 * Options: "1K" (standard), "2K" (higher quality), "4K" (highest quality)
+	 *
+	 * Resolution examples for 1:1 aspect:
+	 * - 1K: 1024x1024 (1120 tokens)
+	 * - 2K: 2048x2048 (1120 tokens)
+	 * - 4K: 4096x4096 (2000 tokens)
+	 */
+	imageSize?: "1K" | "2K" | "4K";
+	/**
+	 * Custom font rendering inputs (Sourceful models only)
+	 * Maximum 2 inputs per request ($0.03 each)
+	 */
+	fontInputs?: Array<{
+		fontUrl: string;
+		text: string;
+	}>;
+	/**
+	 * Super resolution reference images (Sourceful models only)
+	 * Maximum 4 references per request ($0.20 each)
+	 * Only works with image-to-image generation
+	 */
+	superResolutionReferences?: string[];
+};
 
 /**
  * Complete chat request in IR format
@@ -184,6 +231,8 @@ export type IRChatRequest = {
 	responseFormat?: IRResponseFormat;
 	// Output modalities (text, image)
 	modalities?: Array<"text" | "image">;
+	// Image generation configuration (for multimodal text.generate with image output)
+	imageConfig?: IRImageConfig;
 
 	// Advanced parameters
 	frequencyPenalty?: number;

@@ -112,6 +112,14 @@ export function decodeOpenAIChatRequest(req: ChatCompletionsRequest): IRChatRequ
 		// Response format
 		responseFormat: normalizeResponseFormat(req.response_format),
 		modalities: Array.isArray((req as any).modalities) ? (req as any).modalities : undefined,
+		imageConfig: (req as any).image_config
+			? {
+					aspectRatio: (req as any).image_config.aspect_ratio,
+					imageSize: (req as any).image_config.image_size,
+					fontInputs: (req as any).image_config.font_inputs,
+					superResolutionReferences: (req as any).image_config.super_resolution_references,
+			}
+			: undefined,
 
 		// Advanced parameters
 		frequencyPenalty: req.frequency_penalty,

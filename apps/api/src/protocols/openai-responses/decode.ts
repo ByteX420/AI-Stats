@@ -237,6 +237,14 @@ export function decodeOpenAIResponsesRequest(req: ResponsesRequest): IRChatReque
 		promptCacheKey: (req as any).prompt_cache_key,
 		safetyIdentifier: (req as any).safety_identifier,
 		modalities: Array.isArray((req as any).modalities) ? (req as any).modalities : undefined,
+		imageConfig: (req as any).image_config
+			? {
+					aspectRatio: (req as any).image_config.aspect_ratio,
+					imageSize: (req as any).image_config.image_size,
+					fontInputs: (req as any).image_config.font_inputs,
+					superResolutionReferences: (req as any).image_config.super_resolution_references,
+			}
+			: undefined,
 	};
 }
 

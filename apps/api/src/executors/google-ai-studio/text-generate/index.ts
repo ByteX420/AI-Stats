@@ -177,6 +177,40 @@ async function irToGemini(ir: IRChatRequest, modelOverride?: string | null): Pro
 		}
 	}
 
+	// Image generation configuration
+	// Supports: gemini-2.5-flash-image (Nano Banana), gemini-3-pro-image-preview (Nano Banana Pro)
+	// Quirk: aspect_ratio supported by BOTH, resolution ONLY by gemini-3-pro-image-preview
+	if (ir.imageConfig) {
+		const imageConfig: any = {};
+		const modelName = modelOverride ?? ir.model;
+		const isNanoBananaPro = typeof modelName === "string" &&
+			modelName.includes("gemini-3-pro-image-preview");
+
+		// aspect_ratio: supported by BOTH models
+		// gemini-2.5-flash-image: fixed resolution per aspect (1290 tokens)
+		// gemini-3-pro-image-preview: configurable resolution (1K/2K/4K)
+		if (ir.imageConfig.aspectRatio) {
+			imageConfig.aspect_ratio = ir.imageConfig.aspectRatio;
+		}
+
+		// resolution: ONLY supported by gemini-3-pro-image-preview
+		if (isNanoBananaPro && ir.imageConfig.imageSize) {
+			imageConfig.resolution = ir.imageConfig.imageSize;
+		}
+
+		// Other parameters (check if supported by both models)
+		if (ir.imageConfig.fontInputs) {
+			imageConfig.fontInputs = ir.imageConfig.fontInputs;
+		}
+		if (ir.imageConfig.superResolutionReferences) {
+			imageConfig.superResolutionReferences = ir.imageConfig.superResolutionReferences;
+		}
+
+		if (Object.keys(imageConfig).length > 0) {
+			generationConfig.imageConfig = imageConfig;
+		}
+	}
+
 	if (Object.keys(generationConfig).length > 0) {
 		request.generationConfig = generationConfig;
 	}

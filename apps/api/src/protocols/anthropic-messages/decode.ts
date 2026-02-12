@@ -208,6 +208,14 @@ export function decodeAnthropicMessagesRequest(req: AnthropicMessagesRequest): I
 		speed: typeof req.speed === "string" ? req.speed : undefined,
 		serviceTier: resolveRequestedServiceTier(req),
 		modalities: Array.isArray((req as any).modalities) ? (req as any).modalities : undefined,
+		imageConfig: (req as any).image_config
+			? {
+					aspectRatio: (req as any).image_config.aspect_ratio,
+					imageSize: (req as any).image_config.image_size,
+					fontInputs: (req as any).image_config.font_inputs,
+					superResolutionReferences: (req as any).image_config.super_resolution_references,
+			}
+			: undefined,
 	};
 }
 
