@@ -508,6 +508,7 @@ jobs:
                     echo "::error::Missing required npm publish secret: NPM_TOKEN"
                     exit 1
                   fi
+                  npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}"
                   if ! npm whoami --registry https://registry.npmjs.org > /dev/null 2>&1; then
                     echo "::error::NPM_TOKEN is invalid, expired, or missing npm publish permissions. Use an npm automation token with write access for @ai-stats."
                     exit 1
