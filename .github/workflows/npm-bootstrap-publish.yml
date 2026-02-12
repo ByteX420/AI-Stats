@@ -43,17 +43,6 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
-      - name: Validate npm bootstrap token
-        shell: bash
-        env:
-          NPM_BOOTSTRAP_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [ -z "${NPM_BOOTSTRAP_TOKEN:-}" ]; then
-            echo "::error::Missing required secret: NPM_BOOTSTRAP_TOKEN"
-            exit 1
-          fi
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -65,11 +54,13 @@ jobs:
       - name: Publish selected packages (skip if version already exists)
         shell: bash
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }}
           PUBLISH_AI_SDK_PROVIDER: ${{ inputs.publish_ai_sdk_provider }}
           PUBLISH_DEVTOOLS_VIEWER: ${{ inputs.publish_devtools_viewer }}
         run: |
           set -euo pipefail
+          # Ensure npm publishes via GitHub OIDC trusted publishing.
+          unset NODE_AUTH_TOKEN
+          unset NPM_TOKEN
 
           publish_if_needed () {
             pkg_name="$1"
