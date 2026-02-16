@@ -126,7 +126,7 @@
 		"@shikijs/colorized-brackets": "^3.13.0",
 		"@tailwindcss/postcss": "^4",
 		"@types/jest": "^29.5.12",
-		"@types/node": "^20",
+		"@types/node": "^25",
 		"@types/react": "19.2.7",
 		"@types/react-dom": "19.2.3",
 		"@types/three": "^0.180.0",
