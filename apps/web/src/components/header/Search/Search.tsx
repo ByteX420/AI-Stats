@@ -85,17 +85,23 @@ export default function Search({ className }: Props) {
 	// Reset query when dialog closes
 	const handleOpenChange = (newOpen: boolean) => {
 		setOpen(newOpen);
-		if (!newOpen) {
-			setQuery("");
-		}
 	};
 
+	// Keep dialog lifecycle state synchronized regardless of how it was opened/closed.
 	useEffect(() => {
-		if (!open || searchData || isLoadingSearchData) return;
+		if (open) {
+			setSearchDataError(null);
+			return;
+		}
+		setQuery("");
+		setIsLoadingSearchData(false);
+	}, [open]);
+
+	useEffect(() => {
+		if (!open || searchData || searchDataError) return;
 
 		let cancelled = false;
 		setIsLoadingSearchData(true);
-		setSearchDataError(null);
 
 		void fetchSearchData()
 			.then((data) => {
@@ -114,7 +120,7 @@ export default function Search({ className }: Props) {
 		return () => {
 			cancelled = true;
 		};
-	}, [open, searchData, isLoadingSearchData]);
+	}, [open, searchData, searchDataError]);
 
 	const handleSelect = (href: string) => {
 		setOpen(false);
