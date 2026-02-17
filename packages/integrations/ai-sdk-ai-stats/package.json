@@ -44,7 +44,7 @@
   "devDependencies": {
     "@types/node": "^22.19.10",
     "@vitest/coverage-v8": "^4.0.18",
-    "ai": "^6.0.5",
+    "ai": "^6.0.87",
     "rimraf": "^6.0.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18",
