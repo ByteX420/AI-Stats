@@ -17,6 +17,36 @@ type CacheOptions = {
 
 const encoder = new TextEncoder();
 
+function looksLikeStackTrace(value: string): boolean {
+    return /\n\s*at\s+[^\n]+/i.test(value) || /Error:\s*[^\n]+/i.test(value);
+}
+
+function stringifyJsonBody(body: unknown): string {
+    const seen = new WeakSet<object>();
+    return JSON.stringify(
+        body,
+        (key, value) => {
+            if (key === "stack" || key === "stackTrace" || key === "stacktrace") {
+                return undefined;
+            }
+            if (value instanceof Error) {
+                return {
+                    name: value.name,
+                };
+            }
+            if (typeof value === "string" && looksLikeStackTrace(value)) {
+                return "[redacted]";
+            }
+            if (typeof value === "object" && value !== null) {
+                if (seen.has(value)) return "[Circular]";
+                seen.add(value);
+            }
+            return value;
+        },
+        2
+    );
+}
+
 export function withRuntime(handler: Handler) {
     return async (c: Context<{ Bindings: GatewayBindings }>) => {
         configureRuntime(c.env);
@@ -33,7 +63,9 @@ export function withRuntime(handler: Handler) {
 }
 
 export function json(body: any, status = 200, headers: Record<string, string> = {}) {
-    return new Response(JSON.stringify(body, null, 2), {
+    // lgtm[js/stack-trace-exposure]
+    // Stack-like content is stripped in stringifyJsonBody before response serialization.
+    return new Response(stringifyJsonBody(body), {
         status,
         headers: {
             "Content-Type": "application/json",
