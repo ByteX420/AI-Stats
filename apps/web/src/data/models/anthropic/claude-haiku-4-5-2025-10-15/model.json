@@ -28,7 +28,7 @@
     },
     {
       "name": "output_context_length",
-      "value": 65536
+      "value": 64000
     }
   ],
   "benchmarks": []
