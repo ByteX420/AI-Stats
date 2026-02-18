@@ -65,7 +65,7 @@ async function fetchAPI<T>(endpoint: string, params?: Record<string, string | st
       throw new APIError(`API request failed with status ${response.status}`, response.status);
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as ({ ok?: boolean; message?: string } & T);
 
     if (!data.ok) {
       throw new APIError(data.message || "API request failed");
