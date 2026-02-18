@@ -4,6 +4,7 @@ build
 .next
 .mint
 .out
+apps/desktop-studio/out/
 .env*
 pnpm-debug.log
 .turbo/
@@ -14,8 +15,10 @@ turbo-*.log
 .venv
 .ai-stats-devtools/
 /.cache
-/internal
+/internal/*
+!/internal/fetch-provider-model-endpoints.mjs
 # /supabase
 guides/private/
 /apps/api/reports
 /reports
+/scripts/model-discovery/state/
