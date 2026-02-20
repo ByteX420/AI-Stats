@@ -42,7 +42,7 @@
       "is_self_reported": false,
       "other_info": "Thinking, None",
       "source_link": "https://arcprize.org/leaderboard",
-      "rank": 3
+      "rank": 4
     },
     {
       "benchmark_id": "arc-agi-1",
@@ -50,7 +50,7 @@
       "is_self_reported": false,
       "other_info": "1k Thinking",
       "source_link": "https://arcprize.org/leaderboard",
-      "rank": 3
+      "rank": 4
     },
     {
       "benchmark_id": "arc-agi-1",
@@ -58,7 +58,7 @@
       "is_self_reported": false,
       "other_info": "8k Thinking",
       "source_link": "https://arcprize.org/leaderboard",
-      "rank": 3
+      "rank": 4
     },
     {
       "benchmark_id": "arc-agi-1",
@@ -66,7 +66,7 @@
       "is_self_reported": false,
       "other_info": "16k Thinking",
       "source_link": "https://arcprize.org/leaderboard",
-      "rank": 3
+      "rank": 4
     },
     {
       "benchmark_id": "arc-agi-1",
@@ -74,7 +74,7 @@
       "is_self_reported": false,
       "other_info": "32k Thinking",
       "source_link": "https://arcprize.org/leaderboard",
-      "rank": 3
+      "rank": 4
     },
     {
       "benchmark_id": "arc-agi-1",
@@ -82,7 +82,7 @@
       "is_self_reported": false,
       "other_info": "64k Thinking",
       "source_link": "https://arcprize.org/leaderboard",
-      "rank": 3
+      "rank": 4
     },
     {
       "benchmark_id": "arc-agi-2",
@@ -90,7 +90,7 @@
       "is_self_reported": false,
       "other_info": "Thinking, None",
       "source_link": "https://arcprize.org/leaderboard",
-      "rank": 3
+      "rank": 4
     },
     {
       "benchmark_id": "arc-agi-2",
@@ -98,7 +98,7 @@
       "is_self_reported": false,
       "other_info": "1k Thinking",
       "source_link": "https://arcprize.org/leaderboard",
-      "rank": 3
+      "rank": 4
     },
     {
       "benchmark_id": "arc-agi-2",
@@ -106,7 +106,7 @@
       "is_self_reported": false,
       "other_info": "8k Thinking",
       "source_link": "https://arcprize.org/leaderboard",
-      "rank": 3
+      "rank": 4
     },
     {
       "benchmark_id": "arc-agi-2",
@@ -114,7 +114,7 @@
       "is_self_reported": false,
       "other_info": "16k Thinking",
       "source_link": "https://arcprize.org/leaderboard",
-      "rank": 3
+      "rank": 4
     },
     {
       "benchmark_id": "arc-agi-2",
@@ -122,7 +122,7 @@
       "is_self_reported": false,
       "other_info": "32k Thinking",
       "source_link": "https://arcprize.org/leaderboard",
-      "rank": 3
+      "rank": 4
     },
     {
       "benchmark_id": "arc-agi-2",
@@ -130,7 +130,7 @@
       "is_self_reported": false,
       "other_info": "64k Thinking",
       "source_link": "https://arcprize.org/leaderboard",
-      "rank": 3
+      "rank": 4
     },
     {
       "benchmark_id": "swe-bench",
@@ -146,7 +146,7 @@
       "is_self_reported": true,
       "other_info": "Avg@5, 128k Thinking",
       "source_link": "https://assets.anthropic.com/m/64823ba7485345a7/Claude-Opus-4-5-System-Card.pdf",
-      "rank": 1
+      "rank": 2
     },
     {
       "benchmark_id": "tau-2-retail",
@@ -154,7 +154,7 @@
       "is_self_reported": true,
       "other_info": "Avg@5, 64k Thinking",
       "source_link": "https://assets.anthropic.com/m/64823ba7485345a7/Claude-Opus-4-5-System-Card.pdf",
-      "rank": 2
+      "rank": 3
     },
     {
       "benchmark_id": "tau-2-telecom",
@@ -162,7 +162,7 @@
       "is_self_reported": true,
       "other_info": "Avg@5, 64k Thinking",
       "source_link": "https://assets.anthropic.com/m/64823ba7485345a7/Claude-Opus-4-5-System-Card.pdf",
-      "rank": 1
+      "rank": 2
     },
     {
       "benchmark_id": "gpqa-diamond",
@@ -170,7 +170,7 @@
       "is_self_reported": true,
       "other_info": "Avg@5, 64k Thinking",
       "source_link": "https://assets.anthropic.com/m/64823ba7485345a7/Claude-Opus-4-5-System-Card.pdf",
-      "rank": 7
+      "rank": 8
     },
     {
       "benchmark_id": "mmmu",
@@ -186,7 +186,7 @@
       "is_self_reported": true,
       "other_info": "Avg@5, 64k Thinking",
       "source_link": "https://assets.anthropic.com/m/64823ba7485345a7/Claude-Opus-4-5-System-Card.pdf",
-      "rank": 1
+      "rank": 2
     },
     {
       "benchmark_id": "terminal-bench-2.0",
@@ -194,7 +194,7 @@
       "is_self_reported": true,
       "other_info": "Avg@10, 64k Thinking",
       "source_link": "https://assets.anthropic.com/m/64823ba7485345a7/Claude-Opus-4-5-System-Card.pdf",
-      "rank": 1
+      "rank": 2
     },
     {
       "benchmark_id": "swe-bench",
@@ -210,7 +210,7 @@
       "is_self_reported": true,
       "other_info": "Avg@5",
       "source_link": "https://assets.anthropic.com/m/64823ba7485345a7/Claude-Opus-4-5-System-Card.pdf",
-      "rank": 2
+      "rank": 3
     },
     {
       "benchmark_id": "swe-bench-pro",
@@ -218,7 +218,7 @@
       "is_self_reported": true,
       "other_info": "Avg@5, 64k Thinking",
       "source_link": "https://assets.anthropic.com/m/64823ba7485345a7/Claude-Opus-4-5-System-Card.pdf",
-      "rank": 2
+      "rank": 3
     },
     {
       "benchmark_id": "swe-bench-multilingual",
@@ -274,7 +274,7 @@
       "is_self_reported": true,
       "other_info": "Without Search",
       "source_link": "https://assets.anthropic.com/m/64823ba7485345a7/Claude-Opus-4-5-System-Card.pdf",
-      "rank": 4
+      "rank": 5
     },
     {
       "benchmark_id": "humanitys-last-exam",
@@ -282,7 +282,7 @@
       "is_self_reported": true,
       "other_info": "With Search",
       "source_link": "https://assets.anthropic.com/m/64823ba7485345a7/Claude-Opus-4-5-System-Card.pdf",
-      "rank": 4
+      "rank": 5
     },
     {
       "benchmark_id": "aime-2025",

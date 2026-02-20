@@ -284,12 +284,22 @@ export async function loadModels(
         // -------- BENCHMARKS (supports true duplicates safely) --------
         // Build rows with (benchmark_id + digest) buckets, assign occur_idx 1..n per identical digest.
         const rawBenches = m.benchmarks ?? [];
+        const validBenches = rawBenches.filter(
+            (b) => typeof b?.benchmark_id === "string" && b.benchmark_id.trim().length > 0
+        );
+        const invalidBenchmarkRowCount = rawBenches.length - validBenches.length;
+        const hasInvalidBenchmarkRows = invalidBenchmarkRowCount > 0;
+        if (validBenches.length !== rawBenches.length) {
+            console.warn(
+                `[importer] Skipping ${invalidBenchmarkRowCount} benchmark row(s) with missing benchmark_id for model=${model_id}`
+            );
+        }
 
         // If you want visibility into duplicates that used to collide on your old key, keep this tiny logger:
-        if (isDryRun() && rawBenches.length) {
+        if (isDryRun() && validBenches.length) {
             const seen = new Map<string, number>();
             const dupes: Array<{ key: string; first: number; second: number }> = [];
-            rawBenches.forEach((b, i) => {
+            validBenches.forEach((b, i) => {
                 const k = `${model_id}|${b.benchmark_id}|${String(b.score)}|${b.other_info ?? ""}`;
                 if (seen.has(k)) dupes.push({ key: k, first: seen.get(k)!, second: i });
                 else seen.set(k, i);
@@ -299,7 +309,7 @@ export async function loadModels(
 
         // Build stable rows
         const perKeyCount = new Map<string, number>(); // key: benchmark_id|digest -> next occur_idx
-        const benchRows = rawBenches.map(b => {
+        const benchRows = validBenches.map(b => {
             const digest = benchDigest(b.score, b.other_info ?? null, b.source_link ?? null, b.is_self_reported);
             const bucket = `${b.benchmark_id}|${digest}`;
             const occur_idx = (perKeyCount.get(bucket) ?? 0) + 1;
@@ -325,27 +335,40 @@ export async function loadModels(
             for (const r of benchRows)
                 logWrite("public.data_benchmark_results", "UPSERT", r, { onConflict: "result_key" });
         } else {
-            // if (benchRows.length) {
             // UPSERT by unique result_key -- avoids "affect row a second time"
-            assertOk(
-                await supa.from("data_benchmark_results").upsert(benchRows, { onConflict: "result_key" }),
-                "upsert data_benchmark_results"
-            );
+            if (benchRows.length) {
+                assertOk(
+                    await supa.from("data_benchmark_results").upsert(benchRows, { onConflict: "result_key" }),
+                    "upsert data_benchmark_results"
+                );
+            }
 
-            // Precise prune: keep only this run's result_keys for this model
-            const keep = benchRows.map(r => r.result_key);
-            assertOk(
-                await supa
-                    .from("data_benchmark_results")
-                    .delete()
-                    .eq("model_id", model_id)
-                    .not("result_key", "in", toInList(keep)),
-                "prune data_benchmark_results"
-            );
-            // } else {
-            //     // No benchmarks in source -> delete all for this model
-            //     assertOk(await supa.from("data_benchmark_results").delete().eq("model_id", model_id), "prune all benchmarks");
-            // }
+            // Safety: when any malformed benchmark rows are present, skip destructive prune.
+            // This preserves existing benchmark history if source payload quality regresses.
+            if (hasInvalidBenchmarkRows) {
+                console.warn(
+                    `[importer] Skipping benchmark prune for model=${model_id} because ${invalidBenchmarkRowCount} row(s) were invalid`
+                );
+            } else {
+                // Precise prune: keep only this run's result_keys for this model
+                const keep = benchRows.map(r => r.result_key);
+                if (keep.length) {
+                    assertOk(
+                        await supa
+                            .from("data_benchmark_results")
+                            .delete()
+                            .eq("model_id", model_id)
+                            .not("result_key", "in", toInList(keep)),
+                        "prune data_benchmark_results"
+                    );
+                } else {
+                    // Source explicitly contains no benchmark rows for this model.
+                    assertOk(
+                        await supa.from("data_benchmark_results").delete().eq("model_id", model_id),
+                        "prune all data_benchmark_results (source has no benchmarks)"
+                    );
+                }
+            }
         }
     }
     }

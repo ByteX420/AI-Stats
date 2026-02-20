@@ -77,11 +77,21 @@ export default async function Page({
 	const routeParams = await params;
 	const modelId = getModelIdFromParams(routeParams);
 	const includeHidden = false;
+	const model = await fetchModel(modelId, includeHidden);
 
-	const highlightCards = await getModelBenchmarkHighlights(
-		modelId,
-		includeHidden
-	);
+	if (!model) {
+		return (
+			<ModelDetailShell
+				modelId={modelId}
+				tab="benchmarks"
+				includeHidden={includeHidden}
+			>
+				{null}
+			</ModelDetailShell>
+		);
+	}
+
+	const highlightCards = await getModelBenchmarkHighlights(modelId, includeHidden);
 
 	return (
 		<ModelDetailShell modelId={modelId} tab="benchmarks" includeHidden={includeHidden}>
