@@ -17,6 +17,11 @@
       "url": "https://www.minimax.io/news/minimax-m25"
     }
   ],
-  "details": [],
+  "details": [
+    {
+      "name": "input_context_length",
+      "value": 204800
+    }
+  ],
   "benchmarks": []
 }

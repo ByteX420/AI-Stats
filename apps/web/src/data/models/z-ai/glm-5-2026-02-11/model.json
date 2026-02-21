@@ -12,6 +12,15 @@
   "input_types": "text",
   "output_types": "text",
   "links": [],
-  "details": [],
+  "details": [
+    {
+      "name": "parameter_count",
+      "value": 744000000000
+    },
+    {
+      "name": "training_tokens",
+      "value": 28500000000000
+    }
+  ],
   "benchmarks": []
 }
