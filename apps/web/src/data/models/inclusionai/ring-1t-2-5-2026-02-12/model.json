@@ -17,6 +17,15 @@
       "url": "https://huggingface.co/inclusionAI/Ring-1T-2.5-FP8"
     }
   ],
-  "details": [],
+  "details": [
+    {
+      "name": "input_context_length",
+      "value": 256000
+    },
+    {
+      "name": "parameter_count",
+      "value": 1000000000000
+    }
+  ],
   "benchmarks": []
 }
