@@ -28,6 +28,7 @@ export type { FileResponse } from "./FileResponse.js";
 export type { FileUploadRequest } from "./FileUploadRequest.js";
 export type { GenerationResponse } from "./GenerationResponse.js";
 export type { Image } from "./Image.js";
+export type { ImageConfig } from "./ImageConfig.js";
 export type { ImageContentPart } from "./ImageContentPart.js";
 export type { ImageModerationInput } from "./ImageModerationInput.js";
 export type { ImagesEditRequest } from "./ImagesEditRequest.js";
@@ -64,6 +65,7 @@ export type { ResponsesWebSocketServerEvent } from "./ResponsesWebSocketServerEv
 export type { ResponsesWebSocketUpgradeRequiredResponse } from "./ResponsesWebSocketUpgradeRequiredResponse.js";
 export type { TextContentPart } from "./TextContentPart.js";
 export type { TextModerationInput } from "./TextModerationInput.js";
+export type { ThinkingConfig } from "./ThinkingConfig.js";
 export type { ToolCall } from "./ToolCall.js";
 export type { ToolCallContentPart } from "./ToolCallContentPart.js";
 export type { Usage } from "./Usage.js";
