@@ -32,6 +32,7 @@ const OPENAI_LEGACY_COMPLETIONS_MODELS = new Set<string>([
 ]);
 
 const ALIBABA_RESPONSES_PATH_PREFIX = "/api/v2/apps/protocols/compatible-mode/v1";
+const WANDB_API_KEY_ENVS = ["WANDB_API_KEY", "WEIGHTSANDBIASES_API_KEY"] as const;
 
 export const OPENAI_COMPAT_CONFIG: Record<string, OpenAICompatConfig> = {
     openai: {
@@ -310,6 +311,7 @@ export const OPENAI_COMPAT_CONFIG: Record<string, OpenAICompatConfig> = {
         pathPrefix: "/v1",
         apiKeyEnv: "VENICE_API_KEY",
         baseUrlEnv: "VENICE_BASE_URL",
+        supportsResponses: true,
     },
     crusoe: {
         providerId: "crusoe",
@@ -591,7 +593,11 @@ export function openAICompatUrl(providerId: string, path: string): string {
     return `${base}${prefix}${suffix}`;
 }
 
-export function openAICompatHeaders(providerId: string, key: string): Record<string, string> {
+export function openAICompatHeaders(
+    providerId: string,
+    key: string,
+    extraHeaders?: Record<string, string | undefined>,
+): Record<string, string> {
     const config = resolveOpenAICompatConfig(providerId);
     const headerName = config.apiKeyHeader ?? "Authorization";
     const prefix = config.apiKeyPrefix ?? "Bearer ";
@@ -599,10 +605,30 @@ export function openAICompatHeaders(providerId: string, key: string): Record<str
     return {
         [headerName]: headerValue,
         "Content-Type": "application/json",
+        ...(extraHeaders
+            ? Object.fromEntries(
+                Object.entries(extraHeaders).filter(([, value]) => typeof value === "string" && value.length > 0),
+            )
+            : {}),
     };
 }
 
+function readFirstBinding(names: readonly string[]): string | undefined {
+    const bindings = getBindings() as unknown as Record<string, string | undefined>;
+    for (const name of names) {
+        const value = bindings[name];
+        if (typeof value === "string" && value.trim().length > 0) {
+            return value;
+        }
+    }
+    return undefined;
+}
+
 export function resolveOpenAICompatKey(args: ProviderExecuteArgs): ResolvedKey {
+    if (args.providerId === "weights-and-biases") {
+        return resolveProviderKey(args, () => readFirstBinding(WANDB_API_KEY_ENVS));
+    }
+
     const config = resolveOpenAICompatConfig(args.providerId);
     const envKey = config.apiKeyEnv;
     return resolveProviderKey(args, () => {
