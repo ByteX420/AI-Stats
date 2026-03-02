@@ -22,7 +22,7 @@ import oauthClientsRoutes from "./oauth-clients";
 
 export const platformRouter = new Hono<Env>();
 
-platformRouter.route("/gateway/models", modelsRoutes);
+platformRouter.route("/api/models", modelsRoutes);
 platformRouter.route("/data/models", dataModelsRoutes);
 platformRouter.route("/generations", generationsRoutes);
 platformRouter.route("/organisations", organisationsRoutes);
