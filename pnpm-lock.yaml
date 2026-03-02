@@ -344,8 +344,8 @@ importers:
         specifier: ^5.3.7
         version: 5.3.7
       fuse.js:
-        specifier: ^6.6.2
-        version: 6.6.2
+        specifier: ^7.1.0
+        version: 7.1.0
       glicko2:
         specifier: ^1.2.1
         version: 1.2.1
@@ -7076,8 +7076,8 @@ packages:
   functions-have-names@1.2.3:
     resolution: {integrity: sha512-xckBUXyTIqT97tq2x2AMb+g163b5JFysYk0x4qxNFwbfQkmNZoiRHb6sPzI9/QV33WeuvVYBUIiD4NzNIyqaRQ==}
 
-  fuse.js@6.6.2:
-    resolution: {integrity: sha512-cJaJkxCCxC8qIIcPBF9yGxY0W/tVZS3uEISDxhYIdtk8OL93pe+6Zj7LjCqVV4dzbqcriOZ+kQ/NE4RXZHsIGA==}
+  fuse.js@7.1.0:
+    resolution: {integrity: sha512-trLf4SzuuUxfusZADLINj+dE8clK1frKdmqiJNb1Es75fmI5oY6X2mxLVUciLLjxqw/xr72Dhy+lER6dGd02FQ==}
     engines: {node: '>=10'}
 
   gcd@0.0.1:
@@ -18539,7 +18539,7 @@ snapshots:
 
   functions-have-names@1.2.3: {}
 
-  fuse.js@6.6.2: {}
+  fuse.js@7.1.0: {}
 
   gcd@0.0.1: {}
 
