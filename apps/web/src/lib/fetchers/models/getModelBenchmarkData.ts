@@ -88,7 +88,13 @@ type RawBenchmarkPayload = {
 	results: ModelBenchmarkResult[];
 };
 
-const rawResultsPromiseCache = new Map<string, Promise<RawBenchmarkPayload>>();
+function modelBenchmarkTag(modelId: string): string {
+	return `data:benchmarks:model:${modelId}`;
+}
+
+function modelBenchmarkPairTag(modelId: string, benchmarkId: string): string {
+	return `data:benchmarks:model:${modelId}:benchmark:${benchmarkId}`;
+}
 
 function parseScore(
 	value: string | number | null | undefined
@@ -253,15 +259,9 @@ async function loadBenchmarkResults(
 	modelId: string,
 	includeHidden: boolean
 ): Promise<RawBenchmarkPayload> {
-	const cacheKey = `${modelId}:${includeHidden ? "1" : "0"}`;
-	let promise = rawResultsPromiseCache.get(cacheKey);
-
-	if (!promise) {
-		promise = fetchBenchmarkResultsRaw(modelId, includeHidden);
-		rawResultsPromiseCache.set(cacheKey, promise);
-	}
-
-	return promise;
+	// Rely on Next.js cache tags/lifetimes instead of process-local memoization.
+	// This avoids stale benchmark data persisting after importer updates.
+	return fetchBenchmarkResultsRaw(modelId, includeHidden);
 }
 
 function selectHighlightResults(
@@ -608,10 +608,15 @@ export async function getModelBenchmarkHighlights(
 ): Promise<ModelBenchmarkHighlight[]> {
 	"use cache";
 
-	cacheLife("days");
+	cacheLife("hours");
+	cacheTag(modelBenchmarkTag(modelId));
 	cacheTag(`model:benchmarks:highlights:${modelId}`);
 
 	const { results } = await loadBenchmarkResults(modelId, includeHidden);
+	for (const result of results) {
+		if (!result.benchmark_id) continue;
+		cacheTag(modelBenchmarkPairTag(modelId, result.benchmark_id));
+	}
 	return selectHighlightResults(results);
 }
 
@@ -621,10 +626,15 @@ export async function getModelBenchmarkTableData(
 ): Promise<Record<string, ModelBenchmarkResult[]>> {
 	"use cache";
 
-	cacheLife("days");
+	cacheLife("hours");
+	cacheTag(modelBenchmarkTag(modelId));
 	cacheTag(`model:benchmarks:table:${modelId}`);
 
 	const { results } = await loadBenchmarkResults(modelId, includeHidden);
+	for (const result of results) {
+		if (!result.benchmark_id) continue;
+		cacheTag(modelBenchmarkPairTag(modelId, result.benchmark_id));
+	}
 	return groupResultsByBenchmarkName(results);
 }
 
@@ -634,8 +644,14 @@ export async function getModelBenchmarkComparisonData(
 ): Promise<BenchmarkComparisonChart[]> {
 	"use cache";
 
-	cacheLife("days");
+	cacheLife("hours");
+	cacheTag(modelBenchmarkTag(modelId));
 	cacheTag(`model:benchmarks:comparisons:${modelId}`);
 
-	return fetchBenchmarkComparisonCharts(modelId, includeHidden);
+	const charts = await fetchBenchmarkComparisonCharts(modelId, includeHidden);
+	for (const chart of charts) {
+		if (!chart.benchmarkId) continue;
+		cacheTag(modelBenchmarkPairTag(modelId, chart.benchmarkId));
+	}
+	return charts;
 }
