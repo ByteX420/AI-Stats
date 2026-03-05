@@ -24,7 +24,7 @@
     },
     {
       "name": "knowledge_cutoff",
-      "value": "2025-07-01T00:00:00"
+      "value": "2025-02-01T00:00:00"
     },
     {
       "name": "output_context_length",
