@@ -50,6 +50,8 @@ const OPENAI_REASONING_EFFORT_SUPPORT: Record<string, Set<ReasoningEffort>> = {
 	"gpt-5.2-codex": new Set(["none", "minimal", "low", "medium", "high", "xhigh"]),
 	"gpt-5.3": new Set(["none", "minimal", "low", "medium", "high", "xhigh"]),
 	"gpt-5.3-codex": new Set(["none", "minimal", "low", "medium", "high", "xhigh"]),
+	"gpt-5.4": new Set(["none", "low", "medium", "high", "xhigh"]),
+	"gpt-5.4-pro": new Set(["medium", "high", "xhigh"]),
 	"o1": new Set(["low", "medium", "high"]),
 	"o1-preview": new Set(["low", "medium", "high"]),
 	"o1-mini": new Set(["low", "medium", "high"]),
@@ -408,10 +410,11 @@ function getSupportedEfforts(model: string): ReasoningEffort[] {
 	if (normalized in OPENAI_REASONING_EFFORT_SUPPORT) {
 		return Array.from(OPENAI_REASONING_EFFORT_SUPPORT[normalized]).sort();
 	}
-	for (const [modelPrefix, efforts] of Object.entries(OPENAI_REASONING_EFFORT_SUPPORT)) {
-		if (normalized.startsWith(`${modelPrefix}-`) || normalized.startsWith(`${modelPrefix}_`)) {
-			return Array.from(efforts).sort();
-		}
+	const prefixMatch = Object.entries(OPENAI_REASONING_EFFORT_SUPPORT)
+		.sort(([left], [right]) => right.length - left.length)
+		.find(([modelPrefix]) => normalized.startsWith(`${modelPrefix}-`) || normalized.startsWith(`${modelPrefix}_`));
+	if (prefixMatch) {
+		return Array.from(prefixMatch[1]).sort();
 	}
 	return ["low", "medium", "high"];
 }
